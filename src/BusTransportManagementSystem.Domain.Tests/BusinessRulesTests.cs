@@ -4,10 +4,6 @@ using Xunit;
 
 namespace BusTransportManagementSystem.Domain.Tests;
 
-/// <summary>
-/// Integration tests that validate business rules from the Bus Transportation Management System requirements.
-/// These tests ensure the domain model correctly implements the specified business logic.
-/// </summary>
 public class BusinessRulesTests
 {
     [Fact]
@@ -71,9 +67,6 @@ public class BusinessRulesTests
 
         // Assert
         Assert.Equal(9999, validMaxRoute.Value);
-        
-        // Note: Current implementation doesn't enforce this limit - this is a gap identified by tests
-        // In a production system, RouteNumber should validate this constraint
     }
 
     [Fact]
@@ -101,10 +94,10 @@ public class BusinessRulesTests
         var bus = new Bus(new LicensePlate("BUS001"));
         var route = new Route(new RouteNumber("123"));
         
-        var today = new ScheduleDate(DateTime.Today);
-        var almostOneYear = new ScheduleDate(DateTime.Today.AddYears(1).AddDays(-1));
-        var exactlyOneYear = new ScheduleDate(DateTime.Today.AddYears(1));
-        var moreThanOneYear = new ScheduleDate(DateTime.Today.AddYears(1).AddDays(1));
+        var today = new ScheduledDate(DateTime.Today);
+        var almostOneYear = new ScheduledDate(DateTime.Today.AddYears(1).AddDays(-1));
+        var exactlyOneYear = new ScheduledDate(DateTime.Today.AddYears(1));
+        var moreThanOneYear = new ScheduledDate(DateTime.Today.AddYears(1).AddDays(1));
 
         // Act & Assert
         // Should allow assignments up to one year
@@ -124,7 +117,7 @@ public class BusinessRulesTests
         // Arrange
         var schedule = new Schedule();
         var route = new Route(new RouteNumber("123"));
-        var date = new ScheduleDate(DateTime.Today.AddDays(1));
+        var date = new ScheduledDate(DateTime.Today.AddDays(1));
         
         var bus1 = new Bus(new LicensePlate("BUS001"));
         var bus2 = new Bus(new LicensePlate("BUS002"));
@@ -152,7 +145,7 @@ public class BusinessRulesTests
         var bus = new Bus(new LicensePlate("BUS001"));
         var route1 = new Route(new RouteNumber("123"));
         var route2 = new Route(new RouteNumber("456"));
-        var date = new ScheduleDate(DateTime.Today.AddDays(1));
+        var date = new ScheduledDate(DateTime.Today.AddDays(1));
 
         // Act
         schedule.AssignBusToRoute(bus.Id, route1.Id, date, bus, route1);
@@ -175,8 +168,8 @@ public class BusinessRulesTests
         var bus = new Bus(new LicensePlate("BUS001"));
         var route1 = new Route(new RouteNumber("123"));
         var route2 = new Route(new RouteNumber("456"));
-        var today = new ScheduleDate(DateTime.Today.AddDays(1));
-        var tomorrow = new ScheduleDate(DateTime.Today.AddDays(2));
+        var today = new ScheduledDate(DateTime.Today.AddDays(1));
+        var tomorrow = new ScheduledDate(DateTime.Today.AddDays(2));
 
         // Act
         schedule.AssignBusToRoute(bus.Id, route1.Id, today, bus, route1);
@@ -203,7 +196,7 @@ public class BusinessRulesTests
         var schedule = new Schedule();
         var bus = new Bus(new LicensePlate("BUS001"));
         var route = new Route(new RouteNumber("123"));
-        var date = new ScheduleDate(DateTime.Today.AddDays(1));
+        var date = new ScheduledDate(DateTime.Today.AddDays(1));
         
         schedule.AssignBusToRoute(bus.Id, route.Id, date, bus, route);
         
@@ -239,7 +232,7 @@ public class BusinessRulesTests
         var schedule = new Schedule();
         var bus = new Bus(new LicensePlate("BUS001"));
         var route = new Route(new RouteNumber("123"));
-        var date = new ScheduleDate(DateTime.Today.AddDays(1));
+        var date = new ScheduledDate(DateTime.Today.AddDays(1));
         
         schedule.AssignBusToRoute(bus.Id, route.Id, date, bus, route);
         
@@ -272,7 +265,7 @@ public class BusinessRulesTests
         var schedule = new Schedule();
         var bus = new Bus(new LicensePlate("BUS001"));
         var route = new Route(new RouteNumber("123"));
-        var date = new ScheduleDate(DateTime.Today.AddDays(1));
+        var date = new ScheduledDate(DateTime.Today.AddDays(1));
         
         schedule.AssignBusToRoute(bus.Id, route.Id, date, bus, route);
         
@@ -300,7 +293,7 @@ public class BusinessRulesTests
         var schedule = new Schedule();
         var bus = new Bus(new LicensePlate("BUS001"));
         var route = new Route(new RouteNumber("123"));
-        var date = new ScheduleDate(DateTime.Today.AddDays(1));
+        var date = new ScheduledDate(DateTime.Today.AddDays(1));
         
         schedule.AssignBusToRoute(bus.Id, route.Id, date, bus, route);
         
@@ -327,7 +320,7 @@ public class BusinessRulesTests
         var busUnderRepair = new Bus(new LicensePlate("REPAIR001"));
         busUnderRepair.SetUnderRepair();
         var route = new Route(new RouteNumber("123"));
-        var date = new ScheduleDate(DateTime.Today.AddDays(1));
+        var date = new ScheduledDate(DateTime.Today.AddDays(1));
 
         // Act & Assert
         var exception = Assert.Throws<InvalidOperationException>(() =>
@@ -345,7 +338,7 @@ public class BusinessRulesTests
         
         // Arrange
         var schedule = new Schedule();
-        var date = new ScheduleDate(DateTime.Today.AddDays(1));
+        var date = new ScheduledDate(DateTime.Today.AddDays(1));
         
         // Route 123 setup
         var route123 = new Route(new RouteNumber("123"));

@@ -1,20 +1,20 @@
 namespace BusTransportManagementSystem.Domain.ValueObject;
 
-public class ScheduleDate : IEquatable<ScheduleDate>
+public class ScheduledDate : IEquatable<ScheduledDate>
 {
     public DateOnly Value { get; }
 
-    public ScheduleDate(DateOnly value)
+    public ScheduledDate(DateOnly value)
     {
         Value = value;
     }
 
-    public ScheduleDate(DateTime value)
+    public ScheduledDate(DateTime value)
     {
         Value = DateOnly.FromDateTime(value);
     }
 
-    public ScheduleDate(string value)
+    public ScheduledDate(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -29,7 +29,7 @@ public class ScheduleDate : IEquatable<ScheduleDate>
         Value = dateValue;
     }
 
-    public ScheduleDate(int year, int month, int day)
+    public ScheduledDate(int year, int month, int day)
     {
         try
         {
@@ -41,11 +41,11 @@ public class ScheduleDate : IEquatable<ScheduleDate>
         }
     }
 
-    public static implicit operator DateOnly(ScheduleDate scheduleDate) => scheduleDate.Value;
-    public static implicit operator DateTime(ScheduleDate scheduleDate) => scheduleDate.Value.ToDateTime(TimeOnly.MinValue);
-    public static explicit operator ScheduleDate(DateOnly value) => new(value);
-    public static explicit operator ScheduleDate(DateTime value) => new(value);
-    public static explicit operator ScheduleDate(string value) => new(value);
+    public static implicit operator DateOnly(ScheduledDate scheduleDate) => scheduleDate.Value;
+    public static implicit operator DateTime(ScheduledDate scheduleDate) => scheduleDate.Value.ToDateTime(TimeOnly.MinValue);
+    public static explicit operator ScheduledDate(DateOnly value) => new(value);
+    public static explicit operator ScheduledDate(DateTime value) => new(value);
+    public static explicit operator ScheduledDate(string value) => new(value);
 
     public bool IsToday() => Value == DateOnly.FromDateTime(DateTime.Today);
     
@@ -55,22 +55,22 @@ public class ScheduleDate : IEquatable<ScheduleDate>
 
     public bool IsWeekend() => Value.DayOfWeek == DayOfWeek.Saturday || Value.DayOfWeek == DayOfWeek.Sunday;
 
-    public ScheduleDate AddDays(int days) => new(Value.AddDays(days));
+    public ScheduledDate AddDays(int days) => new(Value.AddDays(days));
 
-    public ScheduleDate AddMonths(int months) => new(Value.AddMonths(months));
+    public ScheduledDate AddMonths(int months) => new(Value.AddMonths(months));
 
-    public ScheduleDate AddYears(int years) => new(Value.AddYears(years));
+    public ScheduledDate AddYears(int years) => new(Value.AddYears(years));
 
-    public int DaysUntil(ScheduleDate other) => other.Value.DayNumber - Value.DayNumber;
+    public int DaysUntil(ScheduledDate other) => other.Value.DayNumber - Value.DayNumber;
 
-    public bool Equals(ScheduleDate? other)
+    public bool Equals(ScheduledDate? other)
     {
         if (other is null) return false;
         if (ReferenceEquals(this, other)) return true;
         return Value == other.Value;
     }
 
-    public override bool Equals(object? obj) => obj is ScheduleDate other && Equals(other);
+    public override bool Equals(object? obj) => obj is ScheduledDate other && Equals(other);
 
     public override int GetHashCode() => Value.GetHashCode();
 
@@ -78,15 +78,15 @@ public class ScheduleDate : IEquatable<ScheduleDate>
 
     public string ToString(string format) => Value.ToString(format);
 
-    public static bool operator ==(ScheduleDate left, ScheduleDate right) => Equals(left, right);
+    public static bool operator ==(ScheduledDate left, ScheduledDate right) => Equals(left, right);
 
-    public static bool operator !=(ScheduleDate left, ScheduleDate right) => !Equals(left, right);
+    public static bool operator !=(ScheduledDate left, ScheduledDate right) => !Equals(left, right);
 
-    public static bool operator <(ScheduleDate left, ScheduleDate right) => left.Value < right.Value;
+    public static bool operator <(ScheduledDate left, ScheduledDate right) => left.Value < right.Value;
 
-    public static bool operator >(ScheduleDate left, ScheduleDate right) => left.Value > right.Value;
+    public static bool operator >(ScheduledDate left, ScheduledDate right) => left.Value > right.Value;
 
-    public static bool operator <=(ScheduleDate left, ScheduleDate right) => left.Value <= right.Value;
+    public static bool operator <=(ScheduledDate left, ScheduledDate right) => left.Value <= right.Value;
 
-    public static bool operator >=(ScheduleDate left, ScheduleDate right) => left.Value >= right.Value;
+    public static bool operator >=(ScheduledDate left, ScheduledDate right) => left.Value >= right.Value;
 }

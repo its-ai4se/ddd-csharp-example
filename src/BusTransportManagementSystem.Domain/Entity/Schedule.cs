@@ -5,6 +5,7 @@ namespace BusTransportManagementSystem.Domain.Entity;
 public class Schedule : IEquatable<Schedule>
 {
     public Guid Id { get; }
+
     private readonly List<BusRouteAssignment> _busRouteAssignments;
     private readonly List<DriverShiftAssignment> _driverShiftAssignments;
     public DateTime CreatedAt { get; }
@@ -31,7 +32,7 @@ public class Schedule : IEquatable<Schedule>
     {
     }
 
-    public void AssignBusToRoute(Guid busId, Guid routeId, ScheduleDate date, Bus bus, Route route)
+    public void AssignBusToRoute(Guid busId, Guid routeId, ScheduledDate date, Bus bus, Route route)
     {
         ValidateAssignmentDate(date);
         ValidateBusForAssignment(bus);
@@ -43,8 +44,7 @@ public class Schedule : IEquatable<Schedule>
         LastModifiedAt = DateTime.UtcNow;
     }
 
-    public void AssignDriverToShift(Guid driverId, Guid busId, Guid routeId, ShiftPeriod shiftPeriod, 
-        ScheduleDate date, Driver driver, Bus bus, Route route)
+    public void AssignDriverToShift(Guid driverId, Guid busId, Guid routeId, ShiftPeriod shiftPeriod, ScheduledDate date, Driver driver, Bus bus, Route route)
     {
         ValidateAssignmentDate(date);
         ValidateDriverForAssignment(driver);
@@ -57,9 +57,9 @@ public class Schedule : IEquatable<Schedule>
         LastModifiedAt = DateTime.UtcNow;
     }
 
-    public void RemoveBusRouteAssignment(Guid assignmentId)
+    public void RemoveBusRouteAssignment(Guid busId, Guid routeId, ScheduledDate date)
     {
-        var assignment = _busRouteAssignments.FirstOrDefault(a => a.Id == assignmentId);
+        var assignment = _busRouteAssignments.FirstOrDefault(a => a.BusId == busId && a.RouteId == routeId && a.Date.Equals(date));
         if (assignment == null)
         {
             throw new InvalidOperationException("Bus route assignment not found.");
@@ -79,9 +79,9 @@ public class Schedule : IEquatable<Schedule>
         LastModifiedAt = DateTime.UtcNow;
     }
 
-    public void RemoveDriverShiftAssignment(Guid assignmentId)
+    public void RemoveDriverShiftAssignment(Guid driverId, Guid busId, Guid routeId, ShiftPeriod shiftPeriod, ScheduledDate date)
     {
-        var assignment = _driverShiftAssignments.FirstOrDefault(a => a.Id == assignmentId);
+        var assignment = _driverShiftAssignments.FirstOrDefault(a => a.DriverId == driverId && a.BusId == busId && a.RouteId == routeId && a.ShiftPeriod.Equals(shiftPeriod) && a.Date.Equals(date));
         if (assignment == null)
         {
             throw new InvalidOperationException("Driver shift assignment not found.");
@@ -91,39 +91,39 @@ public class Schedule : IEquatable<Schedule>
         LastModifiedAt = DateTime.UtcNow;
     }
 
-    public IEnumerable<BusRouteAssignment> GetBusAssignmentsForDate(ScheduleDate date)
+    public IEnumerable<BusRouteAssignment> GetBusAssignmentsForDate(ScheduledDate date)
     {
         return _busRouteAssignments.Where(a => a.IsForDate(date));
     }
 
-    public IEnumerable<DriverShiftAssignment> GetDriverAssignmentsForDate(ScheduleDate date)
+    public IEnumerable<DriverShiftAssignment> GetDriverAssignmentsForDate(ScheduledDate date)
     {
         return _driverShiftAssignments.Where(a => a.IsForDate(date));
     }
 
-    public IEnumerable<DriverShiftAssignment> GetDriverAssignmentsForRoute(Guid routeId, ScheduleDate date)
+    public IEnumerable<DriverShiftAssignment> GetDriverAssignmentsForRoute(Guid routeId, ScheduledDate date)
     {
         return _driverShiftAssignments.Where(a => a.IsForRoute(routeId) && a.IsForDate(date));
     }
 
-    public IEnumerable<BusRouteAssignment> GetBusAssignmentsForRoute(Guid routeId, ScheduleDate date)
+    public IEnumerable<BusRouteAssignment> GetBusAssignmentsForRoute(Guid routeId, ScheduledDate date)
     {
         return _busRouteAssignments.Where(a => a.IsForRoute(routeId) && a.IsForDate(date));
     }
 
-    public bool IsBusAssignedOnDate(Guid busId, ScheduleDate date)
+    public bool IsBusAssignedOnDate(Guid busId, ScheduledDate date)
     {
         return _busRouteAssignments.Any(a => a.IsForBus(busId) && a.IsForDate(date));
     }
 
-    public bool IsDriverAssignedToShift(Guid driverId, ShiftPeriod shiftPeriod, ScheduleDate date)
+    public bool IsDriverAssignedToShift(Guid driverId, ShiftPeriod shiftPeriod, ScheduledDate date)
     {
         return _driverShiftAssignments.Any(a => a.IsForDriver(driverId) && a.IsForShift(shiftPeriod) && a.IsForDate(date));
     }
 
-    private void ValidateAssignmentDate(ScheduleDate date)
+    private void ValidateAssignmentDate(ScheduledDate date)
     {
-        var today = new ScheduleDate(DateTime.Today);
+        var today = new ScheduledDate(DateTime.Today);
         var maxFutureDate = today.AddYears(1);
 
         if (date.IsPast())
@@ -171,7 +171,7 @@ public class Schedule : IEquatable<Schedule>
         }
     }
 
-    private void ValidateBusNotAlreadyAssigned(Guid busId, ScheduleDate date)
+    private void ValidateBusNotAlreadyAssigned(Guid busId, ScheduledDate date)
     {
         if (IsBusAssignedOnDate(busId, date))
         {
@@ -179,7 +179,7 @@ public class Schedule : IEquatable<Schedule>
         }
     }
 
-    private void ValidateBusRouteAssignmentExists(Guid busId, Guid routeId, ScheduleDate date)
+    private void ValidateBusRouteAssignmentExists(Guid busId, Guid routeId, ScheduledDate date)
     {
         var busAssignment = _busRouteAssignments.FirstOrDefault(a => 
             a.IsForBus(busId) && a.IsForRoute(routeId) && a.IsForDate(date));

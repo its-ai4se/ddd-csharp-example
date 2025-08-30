@@ -23,12 +23,7 @@ public class Driver : IEquatable<Driver>
     public Driver(DriverName name, SickLeaveStatus? sickLeaveStatus = null)
         : this(Guid.NewGuid(), name, sickLeaveStatus)
     {
-    }
-    
-    public void UpdateName(DriverName newName)
-    {
-        Name = newName ?? throw new ArgumentNullException(nameof(newName));
-    }
+    }  
 
     public void SetSickLeave()
     {

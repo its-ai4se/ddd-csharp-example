@@ -12,8 +12,8 @@ public class ScheduleTests
     private readonly Driver _availableDriver;
     private readonly Driver _sickDriver;
     private readonly Route _route;
-    private readonly ScheduleDate _tomorrow;
-    private readonly ScheduleDate _nextWeek;
+    private readonly ScheduledDate _tomorrow;
+    private readonly ScheduledDate _nextWeek;
 
     public ScheduleTests()
     {
@@ -29,8 +29,8 @@ public class ScheduleTests
         
         _route = new Route(new RouteNumber("123"));
         
-        _tomorrow = new ScheduleDate(DateTime.Today.AddDays(1));
-        _nextWeek = new ScheduleDate(DateTime.Today.AddDays(7));
+        _tomorrow = new ScheduledDate(DateTime.Today.AddDays(1));
+        _nextWeek = new ScheduledDate(DateTime.Today.AddDays(7));
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public class ScheduleTests
     public void AssignBusToRoute_ToPastDate_ShouldThrowInvalidOperationException()
     {
         // Arrange
-        var yesterday = new ScheduleDate(DateTime.Today.AddDays(-1));
+        var yesterday = new ScheduledDate(DateTime.Today.AddDays(-1));
 
         // Act & Assert
         var exception = Assert.Throws<InvalidOperationException>(() =>
@@ -89,7 +89,7 @@ public class ScheduleTests
     public void AssignBusToRoute_MoreThanOneYearInAdvance_ShouldThrowInvalidOperationException()
     {
         // Arrange
-        var moreThanOneYear = new ScheduleDate(DateTime.Today.AddYears(1).AddDays(1));
+        var moreThanOneYear = new ScheduledDate(DateTime.Today.AddYears(1).AddDays(1));
 
         // Act & Assert
         var exception = Assert.Throws<InvalidOperationException>(() =>
@@ -210,10 +210,10 @@ public class ScheduleTests
         _schedule.AssignDriverToShift(_availableDriver.Id, _operationalBus.Id, _route.Id, shiftPeriod, _tomorrow,
             _availableDriver, _operationalBus, _route);
         
-        var busAssignmentId = _schedule.BusRouteAssignments.First().Id;
+        var busAssignment = _schedule.BusRouteAssignments.First();
 
         // Act
-        _schedule.RemoveBusRouteAssignment(busAssignmentId);
+        _schedule.RemoveBusRouteAssignment(busAssignment.BusId, busAssignment.RouteId, busAssignment.Date);
 
         // Assert
         Assert.Empty(_schedule.BusRouteAssignments);
@@ -233,10 +233,10 @@ public class ScheduleTests
         _schedule.AssignDriverToShift(_availableDriver.Id, _operationalBus.Id, _route.Id, afternoonShift, _tomorrow,
             _availableDriver, _operationalBus, _route);
         
-        var morningAssignmentId = _schedule.DriverShiftAssignments.First(a => a.ShiftPeriod.Equals(morningShift)).Id;
+        var morningAssignment = _schedule.DriverShiftAssignments.First(a => a.ShiftPeriod.Equals(morningShift));
 
         // Act
-        _schedule.RemoveDriverShiftAssignment(morningAssignmentId);
+        _schedule.RemoveDriverShiftAssignment(morningAssignment.DriverId, morningAssignment.BusId, morningAssignment.RouteId, morningAssignment.ShiftPeriod, morningAssignment.Date);
 
         // Assert
         Assert.Single(_schedule.DriverShiftAssignments);
@@ -337,7 +337,7 @@ public class ScheduleTests
         // Based on requirement: "For up to a year in advance, city staff assigns buses to routes"
         
         // Arrange
-        var almostOneYear = new ScheduleDate(DateTime.Today.AddYears(1).AddDays(-1));
+        var almostOneYear = new ScheduledDate(DateTime.Today.AddYears(1).AddDays(-1));
 
         // Act & Assert - Should not throw
         _schedule.AssignBusToRoute(_operationalBus.Id, _route.Id, almostOneYear, _operationalBus, _route);

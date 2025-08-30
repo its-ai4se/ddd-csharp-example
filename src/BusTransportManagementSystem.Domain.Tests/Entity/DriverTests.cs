@@ -77,30 +77,6 @@ public class DriverTests
     }
 
     [Fact]
-    public void UpdateName_WithValidName_ShouldUpdateName()
-    {
-        // Arrange
-        var driver = new Driver(new DriverName("John Doe"));
-        var newName = new DriverName("Jane Smith");
-
-        // Act
-        driver.UpdateName(newName);
-
-        // Assert
-        Assert.Equal(newName, driver.Name);
-    }
-
-    [Fact]
-    public void UpdateName_WithNull_ShouldThrowArgumentNullException()
-    {
-        // Arrange
-        var driver = new Driver(new DriverName("John Doe"));
-
-        // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => driver.UpdateName(null!));
-    }
-
-    [Fact]
     public void SetSickLeave_ShouldChangeStatusToOnSickLeave()
     {
         // Arrange
