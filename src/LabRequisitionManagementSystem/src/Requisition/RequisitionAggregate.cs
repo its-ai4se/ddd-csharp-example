@@ -1,7 +1,7 @@
 using LabRequisitionManagementSystem.Domain.Shared.Common;
 using LabRequisitionManagementSystem.Domain.Shared.ValueObjects;
 
-using LabRequisitionManagementSystem.Domain.Test;
+using LabRequisitionManagementSystem.Domain.TestsResult;
 
 namespace LabRequisitionManagementSystem.Domain.Requisition;
 

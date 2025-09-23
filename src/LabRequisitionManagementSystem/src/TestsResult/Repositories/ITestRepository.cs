@@ -1,7 +1,7 @@
-using LabRequisitionManagementSystem.Domain.Test;
+using LabRequisitionManagementSystem.Domain.TestsResult;
 using LabRequisitionManagementSystem.Domain.Shared.ValueObjects;
 
-namespace LabRequisitionManagementSystem.Domain.Test.Repositories;
+namespace LabRequisitionManagementSystem.Domain.TestsResult.Repositories;
 
 public interface ITestRepository
 {
@@ -14,3 +14,5 @@ public interface ITestRepository
     Task UpdateAsync(TestAggregate test, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }
+
+

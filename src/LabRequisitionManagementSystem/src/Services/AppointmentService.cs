@@ -2,7 +2,7 @@ using LabRequisitionManagementSystem.Domain.Shared.Services;
 using LabRequisitionManagementSystem.Domain.Shared.ValueObjects;
 using LabRequisitionManagementSystem.Domain.Lab;
 using LabRequisitionManagementSystem.Domain.Appointment;
-using LabRequisitionManagementSystem.Domain.Test;
+using LabRequisitionManagementSystem.Domain.TestsResult;
 
 namespace LabRequisitionManagementSystem.Domain.Services;
 

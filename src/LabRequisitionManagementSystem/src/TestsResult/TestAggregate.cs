@@ -1,7 +1,7 @@
 using LabRequisitionManagementSystem.Domain.Shared.Common;
 using LabRequisitionManagementSystem.Domain.Shared.ValueObjects;
 
-namespace LabRequisitionManagementSystem.Domain.Test;
+namespace LabRequisitionManagementSystem.Domain.TestsResult;
 
 public class TestAggregate : AggregateRoot
 {
@@ -114,3 +114,5 @@ public class TestAggregate : AggregateRoot
 
     public override string ToString() => $"Test: {Name} ({Group}, Duration: {Duration})";
 }
+
+
