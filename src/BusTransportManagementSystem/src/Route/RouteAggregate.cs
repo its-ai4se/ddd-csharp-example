@@ -17,10 +17,5 @@ public class RouteAggregate : AggregateRoot
         RouteNumber = routeNumber ?? throw new ArgumentNullException(nameof(routeNumber));
     }
 
-    public void UpdateRouteNumber(RouteNumber newRouteNumber)
-    {
-        RouteNumber = newRouteNumber ?? throw new ArgumentNullException(nameof(newRouteNumber));
-    }
-
     public override string ToString() => $"Route: {RouteNumber} (ID: {Id})";
 }

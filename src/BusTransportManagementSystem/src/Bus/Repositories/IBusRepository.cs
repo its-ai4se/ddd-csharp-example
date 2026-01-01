@@ -8,6 +8,5 @@ public interface IBusRepository
     Task<IEnumerable<BusAggregate>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<BusAggregate>> GetAvailableBusesAsync(CancellationToken cancellationToken = default);
     Task AddAsync(BusAggregate bus, CancellationToken cancellationToken = default);
-    Task UpdateAsync(BusAggregate bus, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }

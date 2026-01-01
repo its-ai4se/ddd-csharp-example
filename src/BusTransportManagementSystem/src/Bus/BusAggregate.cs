@@ -20,11 +20,6 @@ public class BusAggregate : AggregateRoot
         RepairStatus = repairStatus ?? RepairStatus.Operational;
     }
 
-    public void UpdateLicensePlate(LicensePlate newLicensePlate)
-    {
-        LicensePlate = newLicensePlate ?? throw new ArgumentNullException(nameof(newLicensePlate));
-    }
-
     public void SetUnderRepair()
     {
         RepairStatus = RepairStatus.UnderRepair;

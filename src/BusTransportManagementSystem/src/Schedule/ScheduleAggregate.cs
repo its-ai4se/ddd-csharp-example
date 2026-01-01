@@ -52,6 +52,8 @@ public class ScheduleAggregate : AggregateRoot
         ValidateBusForAssignment(bus);
         ValidateRouteExists(route);
         ValidateBusRouteAssignmentExists(busId, routeId, date);
+        ValidateDriverNotAlreadyAssignedToShift(driverId, shiftPeriod, date);
+        ValidateDriverMaxShiftsPerDay(driverId, date);
 
         var assignment = new DriverShiftAssignment(driverId, busId, routeId, shiftPeriod, date);
         _driverShiftAssignments.Add(assignment);
@@ -124,6 +126,11 @@ public class ScheduleAggregate : AggregateRoot
 
     private void ValidateAssignmentDate(ScheduledDate date)
     {
+        if (date == null)
+        {
+            throw new ArgumentNullException(nameof(date));
+        }
+
         var today = new ScheduledDate(DateTime.Today);
         var maxFutureDate = today.AddYears(1);
 
@@ -182,12 +189,31 @@ public class ScheduleAggregate : AggregateRoot
 
     private void ValidateBusRouteAssignmentExists(Guid busId, Guid routeId, ScheduledDate date)
     {
-        var busAssignment = _busRouteAssignments.FirstOrDefault(a => 
+        var busAssignment = _busRouteAssignments.FirstOrDefault(a =>
             a.IsForBus(busId) && a.IsForRoute(routeId) && a.IsForDate(date));
 
         if (busAssignment is null)
         {
             throw new InvalidOperationException($"Bus must be assigned to the route before drivers can be assigned to shifts.");
+        }
+    }
+
+    private void ValidateDriverNotAlreadyAssignedToShift(Guid driverId, ShiftPeriod shiftPeriod, ScheduledDate date)
+    {
+        if (IsDriverAssignedToShift(driverId, shiftPeriod, date))
+        {
+            throw new InvalidOperationException("Driver and bus are already assigned to this shift");
+        }
+    }
+
+    private void ValidateDriverMaxShiftsPerDay(Guid driverId, ScheduledDate date)
+    {
+        var shiftCount = _driverShiftAssignments
+            .Count(a => a.IsForDriver(driverId) && a.IsForDate(date));
+
+        if (shiftCount >= 3)
+        {
+            throw new InvalidOperationException("Only 3 shifts exist in one day");
         }
     }
 

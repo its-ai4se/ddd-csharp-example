@@ -18,6 +18,11 @@ public class RouteNumber : ValueObject
             throw new ArgumentException("Route number must be a valid integer.", nameof(value));
         }
 
+        if(intValue < 0)
+        {
+            throw new ArgumentException("Route number must be a non-negative integer.", nameof(value));
+        }
+
         if (intValue > 9999)
         {
             throw new ArgumentException("Route number cannot exceed 9999.", nameof(value));
