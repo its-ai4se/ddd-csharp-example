@@ -9,4 +9,6 @@ public interface IDriverRepository
     Task<IEnumerable<DriverAggregate>> GetAvailableDriversAsync(CancellationToken cancellationToken = default);
     Task AddAsync(DriverAggregate driver, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+    Task SetSickLeaveAsync(Guid id, CancellationToken cancellationToken = default);
+    Task ClearSickLeaveAsync(Guid id, CancellationToken cancellationToken = default);
 }

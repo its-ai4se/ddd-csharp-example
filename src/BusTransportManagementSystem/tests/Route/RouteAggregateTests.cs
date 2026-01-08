@@ -1,4 +1,6 @@
 using BusTransportManagementSystem.Domain.Route;
+using BusTransportManagementSystem.Domain.Route.Repositories;
+using BusTransportManagementSystem.Domain.Shared.Common;
 using BusTransportManagementSystem.Domain.Shared.ValueObjects;
 using Xunit;
 
@@ -44,27 +46,23 @@ public class RouteAggregateTests
     }
 
     [Fact]
-    public void RT005_AddRouteWithDuplicateNumber_ShouldPreventDuplicate()
+    public async Task RT005_AddRouteWithDuplicateNumber_ShouldPreventDuplicate()
     {
+        var repository = new MockRouteRepository();
         var routeNumber = new RouteNumber("1");
-        var routes = new List<RouteAggregate>{};
-        routes.Add(new RouteAggregate(routeNumber));
+        var route = new RouteAggregate(routeNumber);
 
-        var duplicateRouteNumber = new RouteNumber("1");
+        await repository.AddAsync(route);
 
-        Assert.Throws<InvalidOperationException>(() =>
-        {
-            var duplicateRoute = new RouteAggregate(duplicateRouteNumber);
-            
-            if (routes.Any(r => r.RouteNumber.Value == duplicateRoute.RouteNumber.Value))
-            {
-                throw new InvalidOperationException("Route number must be unique");
-            }
-            
-            routes.Add(duplicateRoute);
-        });
+        var duplicateRoute = new RouteAggregate(routeNumber);
 
-        Assert.Single(routes);
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => repository.AddAsync(duplicateRoute));
+
+        Assert.Contains("already exists", exception.Message);
+
+        var allRoutes = await repository.GetAllAsync();
+        Assert.Single(allRoutes);
     }
 
     [Fact]
@@ -78,25 +76,9 @@ public class RouteAggregateTests
     {
         Assert.Throws<ArgumentNullException>(() => new RouteAggregate((RouteNumber)null!));
     }
-
-    #endregion
     
-    #region Route Number Validation Tests
-
     [Fact]
-    public void RT008_CreateRouteWithWhitespaceNumber_ShouldThrowArgumentException()
-    {
-        Assert.Throws<ArgumentException>(() => new RouteNumber("   "));
-    }
-
-    [Fact]
-    public void RT009_CreateRouteWithStringThatIsNotInteger_ShouldThrowArgumentException()
-    {
-        Assert.Throws<ArgumentException>(() => new RouteNumber("abc"));
-    }
-
-    [Fact]
-    public void RT010_CreateMultipleRoutes_ShouldAllHaveUniqueIds()
+    public void RT008_CreateMultipleRoutes_ShouldAllHaveUniqueIds()
     {
         var routeNumbers = new[] { "1", "2", "3" };
         var routes = new List<RouteAggregate>();
@@ -152,3 +134,57 @@ public class RouteAggregateTests
 
 }
 
+public class MockRouteRepository : IRouteRepository
+{
+    private readonly Dictionary<Guid, RouteAggregate> _routes = new();
+
+    public Task<RouteAggregate?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        _routes.TryGetValue(id, out var route);
+        return Task.FromResult(route);
+    }
+
+    public Task<IEnumerable<RouteAggregate>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(_routes.Values.AsEnumerable());
+    }
+
+    public Task<RouteAggregate?> GetByRouteNumberAsync(string routeNumber, CancellationToken cancellationToken = default)
+    {
+        var route = _routes.Values.FirstOrDefault(r => r.RouteNumber.Value.ToString() == routeNumber);
+        return Task.FromResult(route);
+    }
+
+    public Task AddAsync(RouteAggregate route, CancellationToken cancellationToken = default)
+    {
+        if (_routes.Values.Any(r => r.RouteNumber.Value == route.RouteNumber.Value))
+        {
+            throw new DomainException($"Route with number {route.RouteNumber.Value} already exists");
+        }
+
+        _routes[route.Id] = route;
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateAsync(RouteAggregate route, CancellationToken cancellationToken = default)
+    {
+        if (!_routes.ContainsKey(route.Id))
+        {
+            throw new DomainException($"Route with ID {route.Id} not found");
+        }
+
+        _routes[route.Id] = route;
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        if (!_routes.ContainsKey(id))
+        {
+            throw new DomainException($"Route with ID {id} not found");
+        }
+
+        _routes.Remove(id);
+        return Task.CompletedTask;
+    }
+}

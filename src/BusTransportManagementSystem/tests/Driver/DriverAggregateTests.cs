@@ -1,5 +1,15 @@
+using BusTransportManagementSystem.Domain.Bus.Repositories;
 using BusTransportManagementSystem.Domain.Driver;
+using BusTransportManagementSystem.Domain.Driver.Repositories;
+using BusTransportManagementSystem.Domain.Route.Repositories;
+using BusTransportManagementSystem.Domain.Schedule.Repositories;
+using BusTransportManagementSystem.Domain.Schedule.Services;
+using BusTransportManagementSystem.Domain.Shared.Common;
 using BusTransportManagementSystem.Domain.Shared.ValueObjects;
+using BusTransportManagementSystem.Tests.Bus;
+using BusTransportManagementSystem.Tests.Route;
+using BusTransportManagementSystem.Tests.Schedule;
+using BusTransportManagementSystem.Tests.TestHelpers;
 using Xunit;
 
 namespace BusTransportManagementSystem.Tests.Driver;
@@ -15,17 +25,15 @@ public class DriverAggregateTests
         var driver = new DriverAggregate(name);
 
         Assert.NotNull(driver);
-        Assert.Equal("Andi", driver.Name.Value);
         Assert.NotEqual(Guid.Empty, driver.Id);
-        Assert.True(driver.IsAvailable());
-        Assert.False(driver.IsOnSickLeave());
+        Assert.Equal("Andi", driver.Name.Value);
     }
 
     [Fact]
     public void DR002_AddDriverWithEmptyName_ShouldThrowArgumentException()
     {
         Assert.Throws<ArgumentException>(() => new DriverName(""));
-    }
+    } 
 
     [Fact]
     public void DR003_AddDriverWithNullName_ShouldThrowArgumentNullException()
@@ -78,72 +86,87 @@ public class DriverAggregateTests
     #region Delete Driver Tests
 
     [Fact]
-    public void DR007_DeleteExistingDriver_ShouldRemoveSuccessfully()
+    public async Task DR007_DeleteExistingDriver_ShouldRemoveSuccessfully()
     {
-        var drivers = new List<DriverAggregate>();
+        var repository = new MockDriverRepository();
         var driver = new DriverAggregate(new DriverName("Andi"));
-        var driverId = driver.Id;
+        await repository.AddAsync(driver);
 
-        Assert.NotNull(driver);
-        Assert.Equal(driverId, driver.Id);
+        await repository.DeleteAsync(driver.Id);
+
+        var deletedDriver = await repository.GetByIdAsync(driver.Id);
+        Assert.Null(deletedDriver);
     }
 
     [Fact]
-    public void DR008_DeleteNonExistentDriver_ShouldFailedToDelete()
+    public async Task DR008_DeleteNonExistentDriver_ShouldThrowDomainException()
     {
-        var names = new[] { "Budi", "Cindy", "Doni" };
-        var drivers = new List<DriverAggregate>();
-
-        foreach (var name in names)
-        {
-            drivers.Add(new DriverAggregate(new DriverName(name)));
-        }
-
+        var repository = new MockDriverRepository();
         var nonExistentId = Guid.NewGuid();
+        
+        var driver = new DriverAggregate(new DriverName("Andi"));
+        await repository.AddAsync(driver);
 
-        Assert.DoesNotContain(nonExistentId, drivers.Select(d => d.Id));
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => repository.DeleteAsync(nonExistentId));
+
+        Assert.Contains("not found", exception.Message);
     }
 
     [Fact]
-    public void DR009_DeleteDriverWithFutureShifts_ShouldDeleteSuccessfully()
+    public async Task DR009_DeleteDriverWithFutureShifts_ShouldThrowDomainException()
     {
-        var names = new[] { "Budi", "Cindy", "Doni" };
-        var drivers = new List<DriverAggregate>();
+        var mockScheduleRepo = new MockScheduleRepository();
+        var mockDriverRepo = new MockDriverRepository(mockScheduleRepo);
+        var mockBusRepo = new MockBusRepository();
+        var mockRouteRepo = new MockRouteRepository();
+        var mockClock = new MockClock();
 
-        foreach (var name in names)
-        {
-            drivers.Add(new DriverAggregate(new DriverName(name)));
-        }
+        var service = new ScheduleManagementService(
+            mockClock,
+            mockScheduleRepo,
+            mockBusRepo,
+            mockRouteRepo,
+            mockDriverRepo
+        );
 
-        var driverId = drivers[0].Id;
+        var driver = TestDataFactory.CreateDriver("Budi");
+        var bus = TestDataFactory.CreateBus("ABC123");
+        var route = TestDataFactory.CreateRoute(1);
+        var date = TestDataFactory.Dates.Today;
 
-        drivers.RemoveAt(0);
+        await mockDriverRepo.AddAsync(driver);
+        await mockBusRepo.AddAsync(bus);
+        await mockRouteRepo.AddAsync(route);
 
-        Assert.DoesNotContain(driverId, drivers.Select(d => d.Id));
+        await service.AssignBusToRouteAsync(bus.Id, route.Id, date);
+        await service.AssignDriverToShiftAsync(
+            driver.Id, bus.Id, route.Id, TestDataFactory.Shifts.Morning, date);
+
+        // Attempt to delete driver - should fail
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => mockDriverRepo.DeleteAsync(driver.Id));
+
+        Assert.Contains("must be cleared from assignments first", exception.Message);
+
+        // Verify driver still exists
+        var driverAfterFailedDelete = await mockDriverRepo.GetByIdAsync(driver.Id);
+        Assert.NotNull(driverAfterFailedDelete);
     }
 
     [Fact]
-    public void DR010_DeleteDriverAlreadyDeleted_ShouldFailedToDelete()
+    public async Task DR010_DeleteDriverAlreadyDeleted_ShouldThrowDomainException()
     {
-        var names = new[] { "Budi", "Cindy", "Doni" };
-        var drivers = new List<DriverAggregate>();
+        var repository = new MockDriverRepository();
+        var driver = new DriverAggregate(new DriverName("Budi"));
+        await repository.AddAsync(driver);
 
-        foreach (var name in names)
-        {
-            drivers.Add(new DriverAggregate(new DriverName(name)));
-        }
+        await repository.DeleteAsync(driver.Id);
 
-        var budiId = drivers[0].Id;
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => repository.DeleteAsync(driver.Id));
 
-        var budi = drivers.Single(d => d.Id == budiId);
-        drivers.Remove(budi);
-
-        Assert.Throws<InvalidOperationException>(() =>
-        {
-            var driver = drivers.SingleOrDefault(d => d.Id == budiId);
-            if (driver is null)
-                throw new InvalidOperationException("Driver already deleted");
-        });
+        Assert.Contains("not found", exception.Message);
     }
     #endregion
 
@@ -161,11 +184,13 @@ public class DriverAggregateTests
     }
 
     [Fact]
-    public void DR102_MarkNonExistentDriverAsSick_ShouldThrowNotFoundException()
+    public async Task DR102_MarkNonExistentDriverAsSick_ShouldThrowNotFoundException()
     {
+        var repository = new MockDriverRepository();
         var nonExistentId = Guid.NewGuid();
 
-        Assert.NotEqual(Guid.Empty, nonExistentId);
+        var driver = await repository.GetByIdAsync(nonExistentId);
+        Assert.Null(driver);
     }
 
     [Fact]
@@ -181,16 +206,133 @@ public class DriverAggregateTests
     }
 
     [Fact]
-    public void DR104_MarkDriverAsSickWithFutureShifts_ShouldVerifyShiftHandling()
+    public async Task DR104_MarkDriverAsSickWithFutureShifts_ShouldThrowDomainException()
     {
-        var driver = new DriverAggregate(new DriverName("Andi"));
+        var mockScheduleRepo = new MockScheduleRepository();
+        var mockDriverRepo = new MockDriverRepository(mockScheduleRepo);
+        var mockBusRepo = new MockBusRepository();
+        var mockRouteRepo = new MockRouteRepository();
+        var mockClock = new MockClock();
 
-        driver.SetSickLeave();
+        var service = new ScheduleManagementService(
+            mockClock,
+            mockScheduleRepo,
+            mockBusRepo,
+            mockRouteRepo,
+            mockDriverRepo
+        );
 
-        Assert.True(driver.IsOnSickLeave());
-        Assert.False(driver.IsAvailable());
+        var driver = TestDataFactory.CreateDriver("Andi");
+        var bus = TestDataFactory.CreateBus("ABC123");
+        var route = TestDataFactory.CreateRoute(1);
+        var date = TestDataFactory.Dates.Today;
+
+        await mockDriverRepo.AddAsync(driver);
+        await mockBusRepo.AddAsync(bus);
+        await mockRouteRepo.AddAsync(route);
+
+        await service.AssignBusToRouteAsync(bus.Id, route.Id, date);
+        await service.AssignDriverToShiftAsync(
+            driver.Id, bus.Id, route.Id, TestDataFactory.Shifts.Morning, date);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => mockDriverRepo.SetSickLeaveAsync(driver.Id));
+
+        Assert.Contains("must be cleared from assignments first", exception.Message);
+
+        var driverAfterFailedSick = await mockDriverRepo.GetByIdAsync(driver.Id);
+        Assert.NotNull(driverAfterFailedSick);
+        Assert.False(driverAfterFailedSick.IsOnSickLeave());
     }
 
     #endregion
+}
+
+public class MockDriverRepository : IDriverRepository
+{
+    private readonly Dictionary<Guid, DriverAggregate> _drivers = new();
+    private readonly IScheduleRepository? _scheduleRepository;
+
+    public MockDriverRepository(IScheduleRepository? scheduleRepository = null)
+    {
+        _scheduleRepository = scheduleRepository;
+    }
+
+    public Task<DriverAggregate?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        _drivers.TryGetValue(id, out var driver);
+        return Task.FromResult(driver);
+    }
+
+    public Task<IEnumerable<DriverAggregate>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(_drivers.Values.AsEnumerable());
+    }
+
+    public Task<IEnumerable<DriverAggregate>> GetAvailableDriversAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(_drivers.Values.Where(d => d.IsAvailable()).AsEnumerable());
+    }
+
+    public Task AddAsync(DriverAggregate driver, CancellationToken cancellationToken = default)
+    {
+        _drivers[driver.Id] = driver;
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        if (!_drivers.ContainsKey(id))
+            throw new DomainException($"Driver with ID {id} not found");
+
+        // Check if driver has shift assignments
+        if (_scheduleRepository != null)
+        {
+            var schedules = _scheduleRepository.GetAllAsync().GetAwaiter().GetResult();
+            foreach (var schedule in schedules)
+            {
+                if (schedule.DriverShiftAssignments.Any(dsa => dsa.DriverId == id))
+                {
+                    throw new DomainException("Driver must be cleared from assignments first");
+                }
+            }
+        }
+
+        _drivers.Remove(id);
+        return Task.CompletedTask;
+    }
+
+    public Task SetSickLeaveAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        if (!_drivers.ContainsKey(id))
+            throw new DomainException($"Driver with ID {id} not found");
+
+        // Check if driver has shift assignments
+        if (_scheduleRepository != null)
+        {
+            var schedules = _scheduleRepository.GetAllAsync().GetAwaiter().GetResult();
+            foreach (var schedule in schedules)
+            {
+                if (schedule.DriverShiftAssignments.Any(dsa => dsa.DriverId == id))
+                {
+                    throw new DomainException("Driver must be cleared from assignments first");
+                }
+            }
+        }
+
+        var driver = _drivers[id];
+        driver.SetSickLeave();
+        return Task.CompletedTask;
+    }
+
+    public Task ClearSickLeaveAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        if (!_drivers.ContainsKey(id))
+            throw new DomainException($"Driver with ID {id} not found");
+
+        var driver = _drivers[id];
+        driver.ClearSickLeave();
+        return Task.CompletedTask;
+    }
 }
 

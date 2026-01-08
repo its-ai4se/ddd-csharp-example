@@ -1,5 +1,15 @@
 using BusTransportManagementSystem.Domain.Bus;
+using BusTransportManagementSystem.Domain.Bus.Repositories;
+using BusTransportManagementSystem.Domain.Driver.Repositories;
+using BusTransportManagementSystem.Domain.Route.Repositories;
+using BusTransportManagementSystem.Domain.Schedule;
+using BusTransportManagementSystem.Domain.Schedule.Repositories;
+using BusTransportManagementSystem.Domain.Schedule.Services;
+using BusTransportManagementSystem.Domain.Shared.Common;
 using BusTransportManagementSystem.Domain.Shared.ValueObjects;
+using BusTransportManagementSystem.Tests.Driver;
+using BusTransportManagementSystem.Tests.Route;
+using BusTransportManagementSystem.Tests.Schedule;
 using BusTransportManagementSystem.Tests.TestHelpers;
 using Xunit;
 
@@ -45,27 +55,23 @@ public class BusAggregateTests
     }
 
     [Fact]
-    public void BUS005_AddBusWithDuplicatePlate_ShouldPreventDuplicate()
+    public async Task BUS005_AddBusWithDuplicatePlate_ShouldPreventDuplicate()
     {
+        var repository = new MockBusRepository();
         var plate = new LicensePlate("ABC123");
-        var otherPlate = new LicensePlate("ABC123");
 
-        var buses = new List<BusAggregate>{};
-        buses.Add(new BusAggregate(plate));
+        var bus = new BusAggregate(plate);
+        await repository.AddAsync(bus);
 
-        Assert.Throws<InvalidOperationException>(() =>
-        {
-            var duplicateBus = new BusAggregate(otherPlate);
+        var duplicateBus = new BusAggregate(plate);
 
-            if (buses.Any(b => b.LicensePlate.Value == duplicateBus.LicensePlate.Value))
-            {
-                throw new InvalidOperationException("Bus number must be unique");
-            }
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => repository.AddAsync(duplicateBus));
 
-            buses.Add(duplicateBus);
-        });
+        Assert.Contains("already exists", exception.Message);
 
-        Assert.Single(buses);
+        var allBuses = await repository.GetAllAsync();
+        Assert.Single(allBuses);
     }
 
     [Fact]
@@ -105,36 +111,42 @@ public class BusAggregateTests
     #region Delete Bus Tests
 
     [Fact]
-    public void BUS009_DeleteExistingBus_ShouldRemoveSuccessfully()
+    public async Task BUS009_DeleteExistingBus_ShouldRemoveSuccessfully()
     {
+        var repository = new MockBusRepository();
         var bus = new BusAggregate(new LicensePlate("ABC123"));
+        await repository.AddAsync(bus);
         var busId = bus.Id;
 
-        var isBusAccessible = bus != null;
+        await repository.DeleteAsync(busId);
 
-        Assert.NotNull(bus);
-        Assert.Equal(busId, bus.Id);
+        var deletedBus = await repository.GetByIdAsync(busId);
+        Assert.Null(deletedBus);
     }
 
     [Fact]
-    public void BUS010_DeleteNonExistentBus_ShouldFailedToDelete()
+    public async Task BUS010_DeleteNonExistentBus_ShouldFailedToDelete()
     {
-        var plates = new[] { "ABC123", "DEF456", "GHI789" };
-        var buses = new List<BusAggregate>();
-
-        foreach (var plate in plates)
-        {
-            buses.Add(new BusAggregate(new LicensePlate(plate)));
-        }
+        var repository = new MockBusRepository();
+        var bus = new BusAggregate(new LicensePlate("ABC123"));
+        await repository.AddAsync(bus);
 
         var nonExistentId = Guid.NewGuid();
 
-        Assert.DoesNotContain(nonExistentId, buses.Select(b => b.Id));
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => repository.DeleteAsync(nonExistentId));
+
+        Assert.Contains("not found", exception.Message);
     }
 
     [Fact]
-    public void BUS011_DeleteBusWithAssignments_ShouldDeleteSuccessfully()
+    public async Task BUS011_DeleteBusWithAssignments_ShouldThrowException()
     {
+        var mockScheduleRepo = new MockScheduleRepository();
+        var mockBusRepo = new MockBusRepository(mockScheduleRepo);
+        var mockRouteRepo = new MockRouteRepository();
+        var mockClock = new MockClock();
+
         var bus = TestDataFactory.CreateBus("ABC123");
         var route = TestDataFactory.CreateRoute(1);
         var schedule = TestDataFactory.CreateSchedule();
@@ -142,15 +154,22 @@ public class BusAggregateTests
         var busId = bus.Id;
         var routeId = route.Id;
 
+        await mockBusRepo.AddAsync(bus);
+        await mockRouteRepo.AddAsync(route);
+        await mockScheduleRepo.AddAsync(schedule);
+
         schedule.AssignBusToRoute(busId, routeId, futureDate, bus, route);
+        await mockScheduleRepo.UpdateAsync(schedule);
 
         Assert.True(schedule.IsBusAssignedOnDate(busId, futureDate));
 
-        schedule.RemoveBusRouteAssignment(busId, routeId, futureDate);
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => mockBusRepo.DeleteAsync(busId));
 
-        Assert.False(schedule.IsBusAssignedOnDate(busId, futureDate));
-        Assert.NotNull(bus);
-        Assert.Equal(busId, bus.Id);
+        Assert.Contains("must be cleared from assignments first", exception.Message);
+
+        var busAfterFailedDelete = await mockBusRepo.GetByIdAsync(busId);
+        Assert.NotNull(busAfterFailedDelete);
     }
 
     #endregion
@@ -170,11 +189,16 @@ public class BusAggregateTests
     }
 
     [Fact]
-    public void BUS102_MarkNonExistentBusInRepair_ShouldThrowNotFoundException()
+    public async Task BUS102_MarkNonExistentBusInRepair_ShouldThrowNotFoundException()
     {
-        var nonExistentPlate = "XYZ999";
+        var repository = new MockBusRepository();
+        var bus = new BusAggregate(new LicensePlate("ABC123"));
+        await repository.AddAsync(bus);
 
-        Assert.NotNull(nonExistentPlate);
+        var nonExistentId = Guid.NewGuid();
+
+        var currentBus = await repository.GetByIdAsync(nonExistentId);
+        Assert.Null(currentBus);
     }
 
     [Fact]
@@ -191,16 +215,141 @@ public class BusAggregateTests
     }
 
     [Fact]
-    public void BUS104_MarkBusInRepairWithFutureAssignments_ShouldVerifyAssignmentHandling()
+    public async Task BUS104_MarkBusInRepairWithFutureAssignments_ShouldThrowDomainException()
     {
-        var bus = new BusAggregate(new LicensePlate("ABC123"));
+        var mockScheduleRepo = new MockScheduleRepository();
+        var mockBusRepo = new MockBusRepository(mockScheduleRepo);
+        var mockRouteRepo = new MockRouteRepository();
+        var mockClock = new MockClock();
 
-        bus.SetUnderRepair();
+        var service = new ScheduleManagementService(
+            mockClock,
+            mockScheduleRepo,
+            mockBusRepo,
+            mockRouteRepo,
+            new MockDriverRepository()
+        );
 
-        Assert.True(bus.IsUnderRepair());
-        Assert.False(bus.IsAvailableForService());
+        var bus = TestDataFactory.CreateBus("ABC123");
+        var route = TestDataFactory.CreateRoute(1);
+        var date = TestDataFactory.Dates.Today;
+
+        await mockBusRepo.AddAsync(bus);
+        await mockRouteRepo.AddAsync(route);
+        await mockScheduleRepo.AddAsync(new ScheduleAggregate());
+
+        await service.AssignBusToRouteAsync(bus.Id, route.Id, date);
+
+        var schedules = await mockScheduleRepo.GetAllAsync();
+        var schedule = schedules.First();
+        Assert.True(schedule.IsBusAssignedOnDate(bus.Id, date));
+
+        // Attempt to mark bus as under repair - should fail
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => mockBusRepo.SetUnderRepairAsync(bus.Id));
+
+        Assert.Contains("must be cleared from assignments first", exception.Message);
+
+        // Verify bus is still operational
+        var busAfterFailedRepair = await mockBusRepo.GetByIdAsync(bus.Id);
+        Assert.NotNull(busAfterFailedRepair);
+        Assert.False(busAfterFailedRepair.IsUnderRepair());
+        Assert.True(busAfterFailedRepair.IsOperational());
     }
 
     #endregion
 }
 
+public class MockBusRepository : IBusRepository
+{
+    private readonly Dictionary<Guid, BusAggregate> _buses = new();
+    private readonly IScheduleRepository? _scheduleRepository;
+
+    public MockBusRepository(IScheduleRepository? scheduleRepository = null)
+    {
+        _scheduleRepository = scheduleRepository;
+    }
+
+    public Task<BusAggregate?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        _buses.TryGetValue(id, out var bus);
+        return Task.FromResult(bus);
+    }
+
+    public Task<IEnumerable<BusAggregate>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(_buses.Values.AsEnumerable());
+    }
+
+    public Task<IEnumerable<BusAggregate>> GetAvailableBusesAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(_buses.Values.Where(b => b.IsAvailableForService()).AsEnumerable());
+    }
+
+    public Task AddAsync(BusAggregate bus, CancellationToken cancellationToken = default)
+    {
+        if (_buses.Values.Any(b => b.LicensePlate.Value == bus.LicensePlate.Value))
+        {
+            throw new DomainException($"Bus with license plate {bus.LicensePlate.Value} already exists");
+        }
+
+        _buses[bus.Id] = bus;
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        if (!_buses.ContainsKey(id))
+            throw new DomainException($"Bus with ID {id} not found");
+
+        // Check for active assignments if schedule repository is provided
+        if (_scheduleRepository != null)
+        {
+            var schedules = _scheduleRepository.GetAllAsync(cancellationToken).Result;
+            bool hasAssignments = schedules.Any(s =>
+                s.BusRouteAssignments.Any(bra => bra.BusId == id) ||
+                s.DriverShiftAssignments.Any(dsa => dsa.BusId == id));
+
+            if (hasAssignments)
+            {
+                throw new DomainException("Bus must be cleared from assignments first");
+            }
+        }
+
+        _buses.Remove(id);
+        return Task.CompletedTask;
+    }
+
+    public Task SetUnderRepairAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        if (!_buses.ContainsKey(id))
+            throw new DomainException($"Bus with ID {id} not found");
+
+        // Check if bus has route assignments
+        if (_scheduleRepository != null)
+        {
+            var schedules = _scheduleRepository.GetAllAsync(cancellationToken).GetAwaiter().GetResult();
+            foreach (var schedule in schedules)
+            {
+                if (schedule.BusRouteAssignments.Any(bra => bra.BusId == id))
+                {
+                    throw new DomainException("Bus must be cleared from assignments first");
+                }
+            }
+        }
+
+        var bus = _buses[id];
+        bus.SetUnderRepair();
+        return Task.CompletedTask;
+    }
+
+    public Task SetOperationalAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        if (!_buses.ContainsKey(id))
+            throw new DomainException($"Bus with ID {id} not found");
+
+        var bus = _buses[id];
+        bus.SetOperational();
+        return Task.CompletedTask;
+    }
+}

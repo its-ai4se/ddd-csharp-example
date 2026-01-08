@@ -70,7 +70,7 @@ public static class TestDataFactory
         
         public static ScheduledDate Exactly366DaysAhead => new ScheduledDate(DateTime.Today.AddDays(366));
         
-        public static ScheduledDate OneYearAndOneDayAhead => new ScheduledDate(DateTime.Today.AddDays(366));
+        public static ScheduledDate MoreThan1YearAhead => new ScheduledDate(DateTime.Today.AddDays(387));
     }
 
     public static class Shifts
