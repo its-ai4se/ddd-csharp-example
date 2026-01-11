@@ -197,8 +197,8 @@ public class BusAggregateTests
 
         var nonExistentId = Guid.NewGuid();
 
-        var currentBus = await repository.GetByIdAsync(nonExistentId);
-        Assert.Null(currentBus);
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => repository.SetUnderRepairAsync(nonExistentId));
     }
 
     [Fact]
