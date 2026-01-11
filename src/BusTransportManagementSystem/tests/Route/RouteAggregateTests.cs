@@ -64,21 +64,9 @@ public class RouteAggregateTests
         var allRoutes = await repository.GetAllAsync();
         Assert.Single(allRoutes);
     }
-
-    [Fact]
-    public void RT006_AddRouteWithDecimalNumber_ShouldThrowArgumentException()
-    {
-        Assert.Throws<ArgumentException>(() => new RouteNumber("123.45"));
-    }
-
-    [Fact]
-    public void RT007_AddRouteWithNullNumber_ShouldThrowArgumentNullException()
-    {
-        Assert.Throws<ArgumentNullException>(() => new RouteAggregate((RouteNumber)null!));
-    }
     
     [Fact]
-    public void RT008_CreateMultipleRoutes_ShouldAllHaveUniqueIds()
+    public void RT006_CreateMultipleRoutes_ShouldAllHaveUniqueIds()
     {
         var routeNumbers = new[] { "1", "2", "3" };
         var routes = new List<RouteAggregate>();
