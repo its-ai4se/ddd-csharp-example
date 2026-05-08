@@ -145,7 +145,6 @@ public class BusAggregateTests
         var mockScheduleRepo = new MockScheduleRepository();
         var mockBusRepo = new MockBusRepository(mockScheduleRepo);
         var mockRouteRepo = new MockRouteRepository();
-        var mockClock = new MockClock();
 
         var bus = TestDataFactory.CreateBus("ABC123");
         var route = TestDataFactory.CreateRoute(1);
@@ -220,10 +219,8 @@ public class BusAggregateTests
         var mockScheduleRepo = new MockScheduleRepository();
         var mockBusRepo = new MockBusRepository(mockScheduleRepo);
         var mockRouteRepo = new MockRouteRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,

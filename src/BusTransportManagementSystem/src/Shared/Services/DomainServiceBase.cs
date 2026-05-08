@@ -4,10 +4,8 @@ namespace BusTransportManagementSystem.Domain.Shared.Services;
 
 public abstract class DomainServiceBase
 {
-    protected readonly IClock Clock;
 
-    protected DomainServiceBase(IClock clock)
+    protected DomainServiceBase()
     {
-        Clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
 }

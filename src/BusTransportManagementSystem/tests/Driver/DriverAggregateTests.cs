@@ -38,7 +38,7 @@ public class DriverAggregateTests
     [Fact]
     public void DR003_AddDriverWithNullName_ShouldThrowArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => new DriverAggregate((DriverName)null!));
+        Assert.Throws<ArgumentNullException>(() => new DriverAggregate(null!));
     }
 
     [Fact]
@@ -120,10 +120,8 @@ public class DriverAggregateTests
         var mockDriverRepo = new MockDriverRepository(mockScheduleRepo);
         var mockBusRepo = new MockBusRepository();
         var mockRouteRepo = new MockRouteRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -212,10 +210,8 @@ public class DriverAggregateTests
         var mockDriverRepo = new MockDriverRepository(mockScheduleRepo);
         var mockBusRepo = new MockBusRepository();
         var mockRouteRepo = new MockRouteRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,

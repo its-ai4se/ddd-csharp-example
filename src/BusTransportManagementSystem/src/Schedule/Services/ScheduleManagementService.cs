@@ -16,11 +16,10 @@ public class ScheduleManagementService : DomainServiceBase
     private readonly IDriverRepository _driverRepository;
 
     public ScheduleManagementService(
-        IClock clock,
         IScheduleRepository scheduleRepository,
         IBusRepository busRepository,
         IRouteRepository routeRepository,
-        IDriverRepository driverRepository) : base(clock)
+        IDriverRepository driverRepository)
     {
         _scheduleRepository = scheduleRepository ?? throw new ArgumentNullException(nameof(scheduleRepository));
         _busRepository = busRepository ?? throw new ArgumentNullException(nameof(busRepository));

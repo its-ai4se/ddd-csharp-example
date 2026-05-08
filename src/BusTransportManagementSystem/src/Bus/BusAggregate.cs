@@ -25,11 +25,6 @@ public class BusAggregate : AggregateRoot
         RepairStatus = RepairStatus.UnderRepair;
     }
 
-    public void SetOutOfService()
-    {
-        RepairStatus = RepairStatus.OutOfService;
-    }
-
     public void SetOperational()
     {
         RepairStatus = RepairStatus.Operational;
@@ -38,8 +33,6 @@ public class BusAggregate : AggregateRoot
     public bool IsOperational() => RepairStatus.IsOperational();
 
     public bool IsUnderRepair() => RepairStatus.IsUnderRepair();
-
-    public bool IsOutOfService() => RepairStatus.IsOutOfService();
 
     public bool IsAvailableForService() => RepairStatus.IsAvailableForService();
 

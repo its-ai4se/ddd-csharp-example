@@ -5,8 +5,7 @@ namespace BusTransportManagementSystem.Domain.Shared.ValueObjects;
 public enum RepairStatusType
 {
     Operational,
-    UnderRepair,
-    OutOfService
+    UnderRepair
 }
 
 public class RepairStatus : ValueObject
@@ -35,7 +34,6 @@ public class RepairStatus : ValueObject
 
     public static readonly RepairStatus Operational = new(RepairStatusType.Operational);
     public static readonly RepairStatus UnderRepair = new(RepairStatusType.UnderRepair);
-    public static readonly RepairStatus OutOfService = new(RepairStatusType.OutOfService);
 
     public static implicit operator string(RepairStatus status) => status.Value.ToString();
     public static explicit operator RepairStatus(string value) => new(value);
@@ -43,7 +41,6 @@ public class RepairStatus : ValueObject
 
     public bool IsOperational() => Value == RepairStatusType.Operational;
     public bool IsUnderRepair() => Value == RepairStatusType.UnderRepair;
-    public bool IsOutOfService() => Value == RepairStatusType.OutOfService;
     public bool IsAvailableForService() => Value == RepairStatusType.Operational;
 
     protected override IEnumerable<object> GetEqualityComponents()

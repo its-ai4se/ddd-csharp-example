@@ -29,10 +29,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -64,10 +62,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -91,10 +87,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -124,10 +118,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -152,10 +144,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -180,10 +170,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -223,10 +211,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -253,10 +239,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -285,10 +269,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -321,10 +303,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -347,10 +327,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -373,10 +351,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -406,10 +382,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -444,10 +418,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -480,10 +452,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -513,10 +483,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -550,10 +518,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -587,10 +553,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -624,10 +588,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -654,10 +616,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -685,10 +645,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -717,10 +675,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -751,10 +707,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -790,10 +744,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -833,10 +785,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -875,10 +825,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -913,10 +861,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
@@ -966,10 +912,8 @@ public class ScheduleAggregateTests
         var mockRouteRepo = new MockRouteRepository();
         var mockScheduleRepo = new MockScheduleRepository();
         var mockDriverRepo = new MockDriverRepository();
-        var mockClock = new MockClock();
 
         var service = new ScheduleManagementService(
-            mockClock,
             mockScheduleRepo,
             mockBusRepo,
             mockRouteRepo,
