@@ -2,34 +2,30 @@ using LabRequisitionManagementSystem.Domain.Shared.Common;
 
 namespace LabRequisitionManagementSystem.Domain.Shared.ValueObjects;
 
-public class PersonName : ValueObject
+public class PatientName : ValueObject
 {
     public string FirstName { get; }
     public string LastName { get; }
 
-    public PersonName(string firstName, string lastName)
+    public PatientName(string firstName, string lastName)
     {
         if (string.IsNullOrWhiteSpace(firstName))
         {
-            throw new ArgumentException("First name cannot be empty or whitespace.", nameof(firstName));
+            throw new ArgumentException("Patient first name is required", nameof(firstName));
         }
 
         if (string.IsNullOrWhiteSpace(lastName))
         {
-            throw new ArgumentException("Last name cannot be empty or whitespace.", nameof(lastName));
+            throw new ArgumentException("Patient last name is required", nameof(lastName));
         }
 
         FirstName = firstName.Trim();
         LastName = lastName.Trim();
     }
 
-    public string FullName => $"{FirstName} {LastName}";
-
     protected override IEnumerable<object> GetEqualityComponents()
     {
         yield return FirstName;
         yield return LastName;
     }
-
-    public override string ToString() => FullName;
 }

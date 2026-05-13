@@ -9,8 +9,8 @@ public interface ITestResultRepository
     Task<IEnumerable<TestResultAggregate>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<TestResultAggregate>> GetByTestIdAsync(Guid testId, CancellationToken cancellationToken = default);
     Task<IEnumerable<TestResultAggregate>> GetByRequisitionIdAsync(Guid requisitionId, CancellationToken cancellationToken = default);
-    Task<IEnumerable<TestResultAggregate>> GetByPatientIdAsync(Guid patientId, CancellationToken cancellationToken = default);
-    Task<IEnumerable<TestResultAggregate>> GetByDoctorIdAsync(Guid doctorId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<TestResultAggregate>> GetByPatientIdAsync(HealthNumber patientId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<TestResultAggregate>> GetByDoctorIdAsync(PractitionerNumber doctorId, CancellationToken cancellationToken = default);
     Task<IEnumerable<TestResultAggregate>> GetByResultTypeAsync(TestResultType resultType, CancellationToken cancellationToken = default);
     Task AddAsync(TestResultAggregate testResult, CancellationToken cancellationToken = default);
     Task UpdateAsync(TestResultAggregate testResult, CancellationToken cancellationToken = default);

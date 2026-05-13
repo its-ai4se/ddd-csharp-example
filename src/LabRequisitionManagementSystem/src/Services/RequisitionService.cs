@@ -2,43 +2,47 @@ using LabRequisitionManagementSystem.Domain.Shared.Services;
 using LabRequisitionManagementSystem.Domain.Shared.ValueObjects;
 using LabRequisitionManagementSystem.Domain.TestsResult;
 using LabRequisitionManagementSystem.Domain.Requisition;
-using LabRequisitionManagementSystem.Domain.Lab;
-using LabRequisitionManagementSystem.Domain.Appointment;
+using LabRequisitionManagementSystem.Domain.Doctor;
 
 namespace LabRequisitionManagementSystem.Domain.Services;
 
-public class RequisitionService : DomainServiceBase
+public class RequisitionService(IClock clock) : DomainServiceBase(clock)
 {
-    public RequisitionService(IClock clock) : base(clock)
+  public bool CanAddTestToRequisition(RequisitionAggregate requisition, TestAggregate test, IEnumerable<TestAggregate> existingTests)
     {
-    }
-
-    public bool CanAddTestToRequisition(RequisitionAggregate requisition, TestAggregate test, IEnumerable<TestAggregate> existingTests)
-    {
-        // Check if test is active
-        if (!test.IsActive)
+        if (requisition.IsExpired(Clock.Today))
         {
             return false;
         }
 
-        // Check if requisition is valid
-        if (requisition.IsExpired(DateOnly.FromDateTime(Clock.Now)))
-        {
-            return false;
-        }
-
-        // Check if test can be combined with existing tests (same group)
-        return requisition.CanAddTestOfGroup(test.Group, existingTests);
+        return RequisitionAggregate.CanAddTestOfGroup(test.Group, existingTests);
     }
 
-    public bool CanCreateRequisition(Guid doctorId, Guid patientId)
+    public bool CanCreateRequisition(
+        DoctorAggregate doctor,
+        HealthNumber patientId,
+        PractitionerNumber? patientPractitionerNumber = null)
     {
-        // A doctor cannot prescribe tests for themselves
-        return doctorId != patientId;
+        ArgumentNullException.ThrowIfNull(doctor);
+        ArgumentNullException.ThrowIfNull(patientId);
+        return patientPractitionerNumber is null || doctor.CanPrescribeTo(patientPractitionerNumber);
     }
 
     public bool IsRequisitionValid(RequisitionAggregate requisition)
     {
-        return requisition.IsValidOn(DateOnly.FromDateTime(Clock.Now));
+        return requisition.IsValidOn(Clock.Today);
+    }
+
+    public RepetitionInterval ParseRepetitionInterval(string interval)
+    {
+        var normalized = interval?.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "weekly" => RepetitionInterval.Weekly,
+            "monthly" => RepetitionInterval.Monthly,
+            "every half year" => RepetitionInterval.HalfYearly,
+            "yearly" => RepetitionInterval.Yearly,
+            _ => throw new ArgumentException("Invalid interval. Allowed: weekly, monthly, every half year, yearly")
+        };
     }
 }

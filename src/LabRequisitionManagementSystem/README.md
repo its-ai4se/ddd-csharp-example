@@ -34,42 +34,41 @@ Source: [Yujing Yang's multi-step domain model generation models](https://github
 
 ### Core Aggregates
 
-1. **DoctorAggregate** - Represents doctors with practitioner information and digital signatures
-2. **PatientAggregate** - Represents patients with health information and demographics
-3. **TestAggregate** - Represents available tests with groups, duration, and appointment types
-4. **LabAggregate** - Represents lab facilities with business hours and fees
-5. **RequisitionAggregate** - Represents doctor's test prescriptions with repetition patterns
-6. **AppointmentAggregate** - Represents scheduled appointments with confirmation details
-7. **TestResultAggregate** - Represents test outcomes and reports
+1. **DoctorAggregate** - Doctors with practitioner info and digital signatures
+2. **PatientAggregate** - Patients with health info and demographics
+3. **TestAggregate** - Available tests with group, duration, and appointment type
+4. **LabAggregate** - Lab facilities with business hours and fees
+5. **RequisitionAggregate** - Test prescriptions with repetition patterns
+6. **AppointmentAggregate** - Scheduled appointments with confirmation details
+7. **TestResultAggregate** - Test outcomes and reports
 
 ### Value Objects
 
-- **PractitionerNumber** - Numeric practitioner number validation
-- **HealthNumber** - Alpha-numeric health number validation
-- **DigitalSignature** - Digital signature with file data and metadata
-- **TestDuration** - Test duration with TimeSpan validation
-- **PersonName** - First and last name validation
-- **Address** - Complete address with validation
+- **PractitionerNumber** - Practitioner number validation
+- **HealthNumber** - Health number validation
+- **DigitalSignature** - Digital signature file data and metadata
+- **PatientName** - First and last name for patients
 - **PhoneNumber** - Phone number validation
 - **ConfirmationNumber** - Appointment confirmation number
 - **LabRegistrationNumber** - Lab registration number validation
-- **Money** - Monetary values with currency support
-- **BusinessHours** - Lab operating hours with validation
+- **Money** - Monetary value
+- **BusinessHours** - Lab operating hours
+- **TestDuration** - Test duration
+- **AppointmentType** - Scheduled, walk-in, or drop-off
+- **AppointmentStatus** - Appointment lifecycle state
+- **RepetitionInterval** - Repetition cadence
 
 ### Enums
 
 - **TestGroup** - BloodTest, Ultrasound, XRay, UrineTest, StoolTest, MRI, CTScan, ECG, Other
-- **RepetitionInterval** - Weekly, Monthly, HalfYearly, Yearly
-- **AppointmentType** - Scheduled, WalkIn, DropOff
 - **TestResultType** - Positive, Negative, Inconclusive
-- **AppointmentStatus** - Scheduled, Confirmed, InProgress, Completed, Cancelled, NoShow
 
 ### Domain Services
 
-- **RequisitionService** - Handles requisition validation and test combination rules
-- **AppointmentService** - Manages appointment scheduling and conflict resolution
-- **TestResultService** - Manages test result creation and access control
-- **ConfirmationNumberService** - Generates unique confirmation numbers
+- **RequisitionService** - Requisition validation and test group rules
+- **AppointmentService** - Booking rules, duration calculation, and change/cancellation fees
+- **TestResultService** - Test result creation and access control
+- **ConfirmationNumberService** - Confirmation number generation
 
 ## Key Business Rules
 
@@ -121,7 +120,7 @@ Source: [Yujing Yang's multi-step domain model generation models](https://github
 ### Test Results
 
 - Both doctors and patients can view test results
-- Results include outcome (positive/negative/inconclusive) and accompanying report
+- Results include outcome (positive/negative) and accompanying report
 
 ## Repository Interfaces
 
@@ -135,15 +134,7 @@ Source: [Yujing Yang's multi-step domain model generation models](https://github
 
 ## Testing
 
-The solution includes a comprehensive demonstration test that shows the complete domain model in action, including:
-
-- Creating doctor and patient entities
-- Setting up tests with different appointment types
-- Creating lab facilities with business hours
-- Managing requisitions with test combinations
-- Scheduling appointments with confirmations
-- Processing test results
-- Validating business rules
+The test suite covers aggregate behavior and core business rules across doctors, patients, requisitions, labs, appointments, repetitions, and test results.
 
 ## Project Structure
 
@@ -156,14 +147,13 @@ src/LabRequisitionManagementSystem/
 │   │   └── ValueObjects/    # Value objects and enums
 │   ├── Doctor/              # Doctor aggregate and repository
 │   ├── Patient/             # Patient aggregate and repository
-│   ├── Test/                # Test aggregate and repository
+│   ├── TestsResult/         # Test and test result aggregates and repositories
 │   ├── Lab/                 # Lab aggregate and repository
 │   ├── Requisition/         # Requisition aggregate and repository
 │   ├── Appointment/         # Appointment aggregate and repository
-│   ├── TestResult/          # Test result aggregate and repository
 │   └── Services/            # Domain services
 └── tests/
-    └── LabRequisitionDomainModelDemo.cs  # Demonstration test
+    └── *.cs                 # Unit tests
 ```
 
 ## Usage Example
@@ -172,30 +162,23 @@ src/LabRequisitionManagementSystem/
 // Create doctor with practitioner information
 var doctor = new DoctorAggregate(
     new PractitionerNumber("12345"),
-    new PersonName("Dr. Jane", "Smith"),
-    new Address("123 Medical St", "Montreal", "QC", "H1A 1A1"),
+    new DigitalSignature(new byte[] { 1, 2, 3 }, "signature.png", "image/png"),
+    "Dr. Jane Smith",
+    "123 Medical St, Montreal, QC, H1A 1A1",
     new PhoneNumber("(514) 555-0100")
 );
 
 // Create patient with health information
 var patient = new PatientAggregate(
     new HealthNumber("ABC123456"),
-    new PersonName("John", "Doe"),
+    new PatientName("John", "Doe"),
     new DateOnly(1985, 5, 15),
-    new Address("456 Oak Ave", "Montreal", "QC", "H2B 2B2"),
+    "456 Oak Ave, Montreal, QC, H2B 2B2",
     new PhoneNumber("(514) 555-0123")
 );
 
-// Create tests with different appointment types
-var bloodTest = new TestAggregate(
-    "Complete Blood Count",
-    "Standard blood test",
-    TestGroup.BloodTest,
-    new TestDuration(15),
-    AppointmentType.WalkIn
-);
-
-var xrayTest = new TestAggregate(
+// Create tests in the same group
+var xrayTest1 = new TestAggregate(
     "Chest X-Ray",
     "Chest X-ray examination",
     TestGroup.XRay,
@@ -203,17 +186,35 @@ var xrayTest = new TestAggregate(
     AppointmentType.Scheduled
 );
 
-// Create requisition with test combination
-var requisition = new RequisitionAggregate(doctor.Id, patient.Id, DateOnly.FromDateTime(DateTime.Now));
-requisition.AddTest(bloodTest.Id);
-requisition.AddTest(xrayTest.Id);
+var xrayTest2 = new TestAggregate(
+    "Spine X-Ray",
+    "Spine X-ray examination",
+    TestGroup.XRay,
+    new TestDuration(30),
+    AppointmentType.Scheduled
+);
 
-// Schedule appointment for X-ray (blood test is walk-in)
+// Create lab
+var lab = new LabAggregate(
+    "Montreal Medical Lab",
+    "789 Lab St, Montreal, QC, H3C 3C3",
+    new LabRegistrationNumber("LAB123456"),
+    new BusinessHours(new TimeOnly(8, 0), new TimeOnly(17, 0)),
+    new Money(25.00m)
+);
+
+// Create requisition with tests from the same group
+var requisition = new RequisitionAggregate(doctor, patient.HealthNumber, DateOnly.FromDateTime(DateTime.UtcNow));
+requisition.AddTest(xrayTest1.Id);
+requisition.AddTest(xrayTest2.Id);
+
+// Schedule appointment for the requisition
 var appointment = new AppointmentAggregate(
     requisition.Id,
     lab.Id,
-    patient.Id,
-    DateOnly.FromDateTime(DateTime.Now.AddDays(1)),
+    patient.HealthNumber,
+    lab.RegistrationNumber,
+    DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
     new TimeOnly(10, 0),
     new TimeOnly(10, 30),
     new ConfirmationNumber("APT202412011000001")
@@ -222,12 +223,12 @@ appointment.Confirm();
 
 // Process test results
 var testResult = new TestResultAggregate(
-    bloodTest.Id,
+    xrayTest1.Id,
     requisition.Id,
-    patient.Id,
-    doctor.Id,
+    patient.HealthNumber,
+    doctor.PractitionerNumber,
     TestResultType.Negative,
-    "Blood test results are within normal ranges."
+    "X-ray results are within normal ranges."
 );
 ```
 

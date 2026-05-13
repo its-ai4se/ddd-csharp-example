@@ -13,24 +13,3 @@ public enum TestGroup
     Other
 }
 
-public enum RepetitionInterval
-{
-    Weekly,
-    Monthly,
-    HalfYearly,
-    Yearly
-}
-
-public enum AppointmentType
-{
-    Scheduled,
-    WalkIn,
-    DropOff
-}
-
-public enum TestResultType
-{
-    Positive,
-    Negative,
-    Inconclusive
-}

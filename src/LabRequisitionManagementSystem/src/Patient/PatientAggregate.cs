@@ -6,62 +6,27 @@ namespace LabRequisitionManagementSystem.Domain.Patient;
 public class PatientAggregate : AggregateRoot
 {
     public HealthNumber HealthNumber { get; private set; }
-    public PersonName Name { get; private set; }
+    public PatientName Name { get; private set; }
     public DateOnly DateOfBirth { get; private set; }
-    public Address Address { get; private set; }
+    public string Address { get; private set; }
     public PhoneNumber PhoneNumber { get; private set; }
 
-    public PatientAggregate(Guid id, HealthNumber healthNumber, PersonName name, DateOnly dateOfBirth, Address address, PhoneNumber phoneNumber) : base(id)
+    public PatientAggregate(HealthNumber? healthNumber, PatientName? name, DateOnly? dateOfBirth, string? address, PhoneNumber? phoneNumber) : base()
     {
-        HealthNumber = healthNumber ?? throw new ArgumentNullException(nameof(healthNumber));
-        Name = name ?? throw new ArgumentNullException(nameof(name));
-        DateOfBirth = dateOfBirth;
-        Address = address ?? throw new ArgumentNullException(nameof(address));
-        PhoneNumber = phoneNumber ?? throw new ArgumentNullException(nameof(phoneNumber));
+        HealthNumber = healthNumber ?? throw new ArgumentException("Patient health number is required", nameof(healthNumber));
+        Name = name ?? throw new ArgumentException("Patient name is required", nameof(name));
+        if (!dateOfBirth.HasValue)
+            throw new ArgumentException("Patient date of birth is required", nameof(dateOfBirth));
+        DateOfBirth = dateOfBirth.Value;
+        Address = address ?? throw new ArgumentException("Patient address is required", nameof(address));
+        PhoneNumber = phoneNumber ?? throw new ArgumentException("Patient phone number is required", nameof(phoneNumber));
     }
 
-    public PatientAggregate(HealthNumber healthNumber, PersonName name, DateOnly dateOfBirth, Address address, PhoneNumber phoneNumber) : base()
+    public int CalculateAge(DateOnly? today = null)
     {
-        HealthNumber = healthNumber ?? throw new ArgumentNullException(nameof(healthNumber));
-        Name = name ?? throw new ArgumentNullException(nameof(name));
-        DateOfBirth = dateOfBirth;
-        Address = address ?? throw new ArgumentNullException(nameof(address));
-        PhoneNumber = phoneNumber ?? throw new ArgumentNullException(nameof(phoneNumber));
-    }
-
-    public void UpdateName(PersonName newName)
-    {
-        Name = newName ?? throw new ArgumentNullException(nameof(newName));
-    }
-
-    public void UpdateAddress(Address newAddress)
-    {
-        Address = newAddress ?? throw new ArgumentNullException(nameof(newAddress));
-    }
-
-    public void UpdatePhoneNumber(PhoneNumber newPhoneNumber)
-    {
-        PhoneNumber = newPhoneNumber ?? throw new ArgumentNullException(nameof(newPhoneNumber));
-    }
-
-    public int CalculateAge(DateOnly? referenceDate = null)
-    {
-        var refDate = referenceDate ?? DateOnly.FromDateTime(DateTime.Now);
-        var age = refDate.Year - DateOfBirth.Year;
-        
-        if (refDate.Month < DateOfBirth.Month || 
-            (refDate.Month == DateOfBirth.Month && refDate.Day < DateOfBirth.Day))
-        {
-            age--;
-        }
-        
+        var now = today ?? DateOnly.FromDateTime(DateTime.Today);
+        var age = now.Year - DateOfBirth.Year;
+        if (now < DateOfBirth.AddYears(age)) age--;
         return age;
     }
-
-    public bool IsMinor(DateOnly? referenceDate = null)
-    {
-        return CalculateAge(referenceDate) < 18;
-    }
-
-    public override string ToString() => $"Patient: {Name} (Health: {HealthNumber})";
 }

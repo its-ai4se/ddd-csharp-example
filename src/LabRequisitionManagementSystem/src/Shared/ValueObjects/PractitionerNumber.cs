@@ -10,17 +10,12 @@ public class PractitionerNumber : ValueObject
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new ArgumentException("Practitioner number cannot be empty or whitespace.", nameof(value));
+            throw new ArgumentException("Practitioner number is required", nameof(value));
         }
 
         if (!value.All(char.IsDigit))
         {
-            throw new ArgumentException("Practitioner number must contain only digits.", nameof(value));
-        }
-
-        if (value.Length < 4 || value.Length > 10)
-        {
-            throw new ArgumentException("Practitioner number must be between 4 and 10 digits.", nameof(value));
+            throw new ArgumentException("Practitioner number must be numeric", nameof(value));
         }
 
         Value = value.Trim();
@@ -30,6 +25,4 @@ public class PractitionerNumber : ValueObject
     {
         yield return Value;
     }
-
-    public override string ToString() => Value;
 }

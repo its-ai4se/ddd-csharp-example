@@ -10,9 +10,10 @@ public class TestAggregate : AggregateRoot
     public TestGroup Group { get; private set; }
     public TestDuration Duration { get; private set; }
     public AppointmentType AppointmentType { get; private set; }
+    public bool IsSingleDurationGroup { get; private set; }
     public bool IsActive { get; private set; }
 
-    public TestAggregate(Guid id, string name, string description, TestGroup group, TestDuration duration, AppointmentType appointmentType) : base(id)
+    public TestAggregate(Guid id, string name, string description, TestGroup group, TestDuration duration, AppointmentType appointmentType, bool isSingleDurationGroup = false) : base(id)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -29,10 +30,11 @@ public class TestAggregate : AggregateRoot
         Group = group;
         Duration = duration ?? throw new ArgumentNullException(nameof(duration));
         AppointmentType = appointmentType;
+        IsSingleDurationGroup = isSingleDurationGroup;
         IsActive = true;
     }
 
-    public TestAggregate(string name, string description, TestGroup group, TestDuration duration, AppointmentType appointmentType) : base()
+    public TestAggregate(string name, string description, TestGroup group, TestDuration duration, AppointmentType appointmentType, bool isSingleDurationGroup = false) : base()
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -49,6 +51,7 @@ public class TestAggregate : AggregateRoot
         Group = group;
         Duration = duration ?? throw new ArgumentNullException(nameof(duration));
         AppointmentType = appointmentType;
+        IsSingleDurationGroup = isSingleDurationGroup;
         IsActive = true;
     }
 
@@ -82,37 +85,20 @@ public class TestAggregate : AggregateRoot
         AppointmentType = newAppointmentType;
     }
 
-    public void Activate()
-    {
-        IsActive = true;
-    }
-
-    public void Deactivate()
-    {
-        IsActive = false;
-    }
-
     public bool RequiresAppointment()
     {
-        return AppointmentType == AppointmentType.Scheduled;
+        return AppointmentType == new AppointmentType(AppointmentTypeType.Scheduled);
     }
 
     public bool IsWalkInOnly()
     {
-        return AppointmentType == AppointmentType.WalkIn;
+        return AppointmentType == new AppointmentType(AppointmentTypeType.WalkIn);
     }
 
     public bool IsDropOffOnly()
     {
-        return AppointmentType == AppointmentType.DropOff;
-    }
-
-    public bool CanBeCombinedWith(TestAggregate otherTest)
-    {
-        return IsActive && otherTest.IsActive && Group == otherTest.Group;
+        return AppointmentType == new AppointmentType(AppointmentTypeType.DropOff);
     }
 
     public override string ToString() => $"Test: {Name} ({Group}, Duration: {Duration})";
 }
-
-

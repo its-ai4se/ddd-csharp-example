@@ -14,7 +14,7 @@ public class PhoneNumber : ValueObject
         }
 
         // Remove all non-digit characters for validation
-        var digitsOnly = new string(value.Where(char.IsDigit).ToArray());
+        var digitsOnly = new string([.. value.Where(char.IsDigit)]);
         
         if (digitsOnly.Length < 10 || digitsOnly.Length > 15)
         {
@@ -28,6 +28,4 @@ public class PhoneNumber : ValueObject
     {
         yield return Value;
     }
-
-    public override string ToString() => Value;
 }

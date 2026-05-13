@@ -12,44 +12,19 @@ public class AppointmentService : DomainServiceBase
     {
     }
 
-    public bool CanScheduleAppointment(LabAggregate lab, DateOnly appointmentDate, TimeOnly startTime, TimeOnly endTime, IEnumerable<AppointmentAggregate> existingAppointments)
+    public TimeSpan CalculateTotalTestDuration(IEnumerable<TestAggregate> tests)
     {
-        // Check if lab is active and open
-        if (!lab.IsActive || !lab.IsOpenOn(appointmentDate) || !lab.IsOpenAt(startTime) || !lab.IsOpenAt(endTime))
-        {
-            return false;
-        }
-
-        // Check for conflicts with existing appointments
-        var conflictingAppointments = existingAppointments.Where(a => 
-            a.AppointmentDate == appointmentDate && 
-            a.Status != AppointmentStatus.Cancelled &&
-            a.Status != AppointmentStatus.NoShow &&
-            ((startTime >= a.StartTime && startTime < a.EndTime) ||
-             (endTime > a.StartTime && endTime <= a.EndTime) ||
-             (startTime <= a.StartTime && endTime >= a.EndTime)));
-
-        return !conflictingAppointments.Any();
+        var list = tests.ToList();
+        if (list.Count == 0) return TimeSpan.Zero;
+        if (list.All(t => t.IsSingleDurationGroup) && list.Select(t => t.Group).Distinct().Count() == 1)
+            return list[0].Duration.Duration;
+        return list.Aggregate(TimeSpan.Zero, (sum, t) => sum + t.Duration.Duration);
     }
 
-    public bool RequiresAppointment(TestAggregate test)
+    public Money CalculateChangeCancellationFee(AppointmentAggregate appointment, LabAggregate lab, DateTime? referenceTime = null)
     {
-        return test.RequiresAppointment();
-    }
-
-    public bool IsWalkInOnly(TestAggregate test)
-    {
-        return test.IsWalkInOnly();
-    }
-
-    public bool IsDropOffOnly(TestAggregate test)
-    {
-        return test.IsDropOffOnly();
-    }
-
-    public Money CalculateChangeCancellationFee(AppointmentAggregate appointment, LabAggregate lab)
-    {
-        if (appointment.IsWithin24Hours())
+        var effectiveReference = referenceTime ?? Clock.Now;
+        if (appointment.IsWithin24Hours(effectiveReference))
         {
             return lab.GetChangeCancellationFee();
         }
@@ -57,13 +32,39 @@ public class AppointmentService : DomainServiceBase
         return new Money(0);
     }
 
-    public bool CanRescheduleAppointment(AppointmentAggregate appointment)
+    public void ValidateCanBookAppointment(TestAggregate test)
     {
-        return appointment.Status != AppointmentStatus.Completed;
+        if (test.IsWalkInOnly())
+            throw new ArgumentException("This test is walk-in only and cannot be booked as an appointment");
+        if (test.IsDropOffOnly())
+            throw new ArgumentException("This test requires sample drop-off only");
     }
 
-    public bool CanCancelAppointment(AppointmentAggregate appointment)
+    public void ValidateCanBookAnotherAppointment(Requisition.RequisitionAggregate requisition, IEnumerable<AppointmentAggregate> existingAppointments)
     {
-        return appointment.Status != AppointmentStatus.Completed;
+        if (!CanBookAnotherAppointment(requisition, existingAppointments))
+        {
+            throw new InvalidOperationException("Only one active appointment is allowed at a time for repeated requisitions");
+        }
+    }
+
+    public bool CanBookAnotherAppointment(Requisition.RequisitionAggregate requisition, IEnumerable<AppointmentAggregate> existingAppointments)
+    {
+        if (!requisition.HasRepetitionPattern())
+            return true;
+
+        return !existingAppointments.Any(a =>
+            a.RequisitionId == requisition.Id &&
+            !a.IsCancelled() &&
+            !a.IsCompleted() &&
+            !a.IsNoShow());
+    }
+
+    public void ValidateAppointmentTime(LabAggregate lab, TimeOnly startTime, TimeOnly endTime)
+    {
+        if (!lab.IsOpenAt(startTime) || !lab.IsOpenAt(endTime))
+        {
+            throw new ArgumentException("Requested time is outside lab operating hours");
+        }
     }
 }

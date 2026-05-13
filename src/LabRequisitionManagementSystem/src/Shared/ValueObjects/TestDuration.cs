@@ -24,6 +24,4 @@ public class TestDuration : ValueObject
     {
         yield return Duration;
     }
-
-    public override string ToString() => Duration.ToString(@"hh\:mm");
 }

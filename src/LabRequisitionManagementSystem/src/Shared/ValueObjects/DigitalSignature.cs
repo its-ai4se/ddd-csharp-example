@@ -36,6 +36,4 @@ public class DigitalSignature : ValueObject
         yield return FileName;
         yield return ContentType;
     }
-
-    public override string ToString() => $"DigitalSignature: {FileName} ({ContentType})";
 }

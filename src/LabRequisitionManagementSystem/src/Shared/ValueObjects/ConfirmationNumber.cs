@@ -13,11 +13,6 @@ public class ConfirmationNumber : ValueObject
             throw new ArgumentException("Confirmation number cannot be empty or whitespace.", nameof(value));
         }
 
-        if (value.Length < 6 || value.Length > 20)
-        {
-            throw new ArgumentException("Confirmation number must be between 6 and 20 characters.", nameof(value));
-        }
-
         Value = value.Trim().ToUpperInvariant();
     }
 
@@ -25,6 +20,4 @@ public class ConfirmationNumber : ValueObject
     {
         yield return Value;
     }
-
-    public override string ToString() => Value;
 }

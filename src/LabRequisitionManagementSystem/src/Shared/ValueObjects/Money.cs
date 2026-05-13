@@ -7,7 +7,7 @@ public class Money : ValueObject
     public decimal Amount { get; }
     public string Currency { get; }
 
-    public Money(decimal amount, string currency = "CAD")
+    public Money(decimal amount, string currency = "IDR")
     {
         if (amount < 0)
         {
@@ -28,6 +28,4 @@ public class Money : ValueObject
         yield return Amount;
         yield return Currency;
     }
-
-    public override string ToString() => $"{Amount:C} {Currency}";
 }

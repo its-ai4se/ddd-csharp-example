@@ -6,39 +6,70 @@ using LabRequisitionManagementSystem.Domain.Patient;
 
 namespace LabRequisitionManagementSystem.Domain.Services;
 
-public class TestResultService : DomainServiceBase
+public class TestResultService(IClock clock) : DomainServiceBase(clock)
 {
-    public TestResultService(IClock clock) : base(clock)
+    public bool CanViewTestResult(TestResultAggregate testResult, Guid actorId)
     {
+        return testResult.DoctorActorId == actorId || testResult.PatientActorId == actorId;
     }
 
-    public bool CanViewTestResult(TestResultAggregate testResult, Guid viewerId)
+    public void ValidateCanViewTestResult(TestResultAggregate testResult, Guid actorId)
     {
-        return testResult.CanBeViewedBy(viewerId);
+        if (!CanViewTestResult(testResult, actorId))
+            throw new UnauthorizedAccessException("Unauthorized access to test results");
     }
 
-    public bool CanViewTestResult(TestResultAggregate testResult, DoctorAggregate doctor)
+    public bool CanViewTestResult(TestResultAggregate testResult, PractitionerNumber viewerPractitionerNumber)
     {
-        return testResult.DoctorId == doctor.Id;
+        return testResult.CanBeViewedBy(viewerPractitionerNumber);
     }
 
-    public bool CanViewTestResult(TestResultAggregate testResult, PatientAggregate patient)
+    public bool CanViewTestResult(TestResultAggregate testResult, HealthNumber viewerHealthNumber)
     {
-        return testResult.PatientId == patient.Id;
+        return testResult.CanBeViewedBy(viewerHealthNumber);
     }
 
-    public TestResultAggregate CreateTestResult(Guid testId, Guid requisitionId, Guid patientId, Guid doctorId, TestResultType result, string report)
+    public static bool CanViewTestResult(TestResultAggregate testResult, DoctorAggregate doctor)
+    {
+        return testResult.DoctorId == doctor.PractitionerNumber;
+    }
+
+    public static bool CanViewTestResult(TestResultAggregate testResult, PatientAggregate patient)
+    {
+        return testResult.PatientId == patient.HealthNumber;
+    }
+
+    public void ValidateCanViewTestResult(TestResultAggregate testResult, PractitionerNumber viewerPractitionerNumber)
+    {
+        if (!CanViewTestResult(testResult, viewerPractitionerNumber))
+            throw new UnauthorizedAccessException("Unauthorized access to test results");
+    }
+
+    public void ValidateCanViewTestResult(TestResultAggregate testResult, HealthNumber viewerHealthNumber)
+    {
+        if (!CanViewTestResult(testResult, viewerHealthNumber))
+            throw new UnauthorizedAccessException("Unauthorized access to test results");
+    }
+
+    public static TestResultAggregate CreateTestResult(
+        Guid testId,
+        Guid requisitionId,
+        HealthNumber patientId,
+        PractitionerNumber doctorId,
+        TestResultType result,
+        string report,
+        DateTime? testedAt = null)
     {
         if (string.IsNullOrWhiteSpace(report))
         {
             throw new ArgumentException("Test report cannot be empty or whitespace.", nameof(report));
         }
 
-        return new TestResultAggregate(testId, requisitionId, patientId, doctorId, result, report);
+        return new TestResultAggregate(testId, requisitionId, patientId, doctorId, result, report, testedAt, testedAt);
     }
 
     public void UpdateTestResult(TestResultAggregate testResult, TestResultType newResult, string newReport)
     {
-        testResult.UpdateResult(newResult, newReport);
+        testResult.UpdateResult(newResult, newReport, Clock.Now);
     }
 }

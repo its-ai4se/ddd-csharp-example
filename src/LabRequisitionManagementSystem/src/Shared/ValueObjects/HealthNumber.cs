@@ -10,17 +10,12 @@ public class HealthNumber : ValueObject
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new ArgumentException("Health number cannot be empty or whitespace.", nameof(value));
+            throw new ArgumentException("Patient health number is required", nameof(value));
         }
 
         if (!value.All(c => char.IsLetterOrDigit(c)))
         {
-            throw new ArgumentException("Health number must contain only alphanumeric characters.", nameof(value));
-        }
-
-        if (value.Length < 6 || value.Length > 12)
-        {
-            throw new ArgumentException("Health number must be between 6 and 12 characters.", nameof(value));
+            throw new ArgumentException("Health number must be alphanumeric", nameof(value));
         }
 
         Value = value.Trim().ToUpperInvariant();
@@ -30,6 +25,4 @@ public class HealthNumber : ValueObject
     {
         yield return Value;
     }
-
-    public override string ToString() => Value;
 }
