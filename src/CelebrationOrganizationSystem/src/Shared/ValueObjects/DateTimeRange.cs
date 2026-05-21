@@ -9,6 +9,16 @@ public class DateTimeRange : ValueObject
 
     public DateTimeRange(DateTime startDateTime, DateTime endDateTime)
     {
+        if (startDateTime == default)
+        {
+            throw new ArgumentException("Start date/time cannot be default.", nameof(startDateTime));
+        }
+
+        if (endDateTime == default)
+        {
+            throw new ArgumentException("End date/time cannot be default.", nameof(endDateTime));
+        }
+
         if (startDateTime >= endDateTime)
         {
             throw new ArgumentException("Start date/time must be before end date/time.", nameof(startDateTime));
@@ -19,11 +29,6 @@ public class DateTimeRange : ValueObject
     }
 
     public TimeSpan Duration => EndDateTime - StartDateTime;
-
-    public bool IsInRange(DateTime dateTime)
-    {
-        return dateTime >= StartDateTime && dateTime <= EndDateTime;
-    }
 
     protected override IEnumerable<object> GetEqualityComponents()
     {

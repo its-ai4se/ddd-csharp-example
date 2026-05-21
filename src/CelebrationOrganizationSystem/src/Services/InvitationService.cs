@@ -1,85 +1,109 @@
+using CelebrationOrganizationSystem.Domain.Event.Repositories;
 using CelebrationOrganizationSystem.Domain.Invitation;
 using CelebrationOrganizationSystem.Domain.Invitation.Repositories;
-using CelebrationOrganizationSystem.Domain.Person;
-using CelebrationOrganizationSystem.Domain.Person.Repositories;
 using CelebrationOrganizationSystem.Domain.Shared.Common;
-using CelebrationOrganizationSystem.Domain.Shared.Services;
 using CelebrationOrganizationSystem.Domain.Shared.ValueObjects;
 
 namespace CelebrationOrganizationSystem.Domain.Services;
 
-public class InvitationService : DomainServiceBase
+public class InvitationService(
+    IEventRepository eventRepository,
+    IInvitationRepository invitationRepository)
 {
-    private readonly IInvitationRepository _invitationRepository;
-    private readonly IPersonRepository _personRepository;
+    private readonly IEventRepository _eventRepository = eventRepository ?? throw new ArgumentNullException(nameof(eventRepository));
+    private readonly IInvitationRepository _invitationRepository = invitationRepository ?? throw new ArgumentNullException(nameof(invitationRepository));
 
-    public InvitationService(
-        IClock clock,
-        IInvitationRepository invitationRepository,
-        IPersonRepository personRepository) : base(clock)
+    public async Task<InvitationAggregate> InviteAttendeeAsync(
+        Guid eventId,
+        PersonName attendeeName,
+        EmailAddress attendeeEmail)
     {
-        _invitationRepository = invitationRepository ?? throw new ArgumentNullException(nameof(invitationRepository));
-        _personRepository = personRepository ?? throw new ArgumentNullException(nameof(personRepository));
+        var eventAggregate = await _eventRepository.GetByIdAsync(eventId);
+        if (eventAggregate is null)
+        {
+            throw new DomainException($"Event with ID {eventId} not found.");
+        }
+
+        if (await _invitationRepository.ExistsByEventAndEmailAsync(eventId, attendeeEmail.Value))
+        {
+            throw new DomainException("Attendee email has already been invited to this event.");
+        }
+
+        var invitation = new InvitationAggregate(eventId, attendeeEmail, attendeeName);
+        await _invitationRepository.AddAsync(invitation);
+        return invitation;
     }
 
     public async System.Threading.Tasks.Task RespondToInvitationAsync(Guid invitationId, InvitationStatus status)
     {
-        var invitation = await _invitationRepository.GetByIdAsync(invitationId);
-        if (invitation == null)
-        {
-            throw new DomainException($"Invitation with ID {invitationId} not found.");
-        }
-
+        var invitation = await GetInvitationOrThrowAsync(invitationId);
         invitation.RespondToInvitation(status);
         await _invitationRepository.UpdateAsync(invitation);
-    }
 
-    public async System.Threading.Tasks.Task UpdateInvitationResponseAsync(Guid invitationId, InvitationStatus newStatus)
-    {
-        var invitation = await _invitationRepository.GetByIdAsync(invitationId);
-        if (invitation == null)
+        if (status == InvitationStatus.WillAttend && invitation.AttendeeId.HasValue)
         {
-            throw new DomainException($"Invitation with ID {invitationId} not found.");
+            var eventAggregate = await _eventRepository.GetByIdAsync(invitation.EventId);
+            if (eventAggregate is not null)
+            {
+                eventAggregate.AddAttendee(invitation.AttendeeId.Value);
+                await _eventRepository.UpdateAsync(eventAggregate);
+            }
         }
-
-        invitation.UpdateResponse(newStatus);
-        await _invitationRepository.UpdateAsync(invitation);
     }
 
-    public async System.Threading.Tasks.Task<IEnumerable<InvitationAggregate>> GetInvitationsForAttendeeAsync(Guid attendeeId)
+    public async Task<IEnumerable<InvitationAggregate>> GetInvitationsForAttendeeAsync(Guid attendeeId)
     {
         return await _invitationRepository.GetByAttendeeIdAsync(attendeeId);
     }
 
-    public async System.Threading.Tasks.Task<IEnumerable<InvitationAggregate>> GetInvitationsForEventAsync(Guid eventId)
+    public async Task<IEnumerable<InvitationAggregate>> GetInvitationsForEventAsync(Guid eventId)
     {
         return await _invitationRepository.GetByEventIdAsync(eventId);
     }
 
-    public async System.Threading.Tasks.Task<InvitationStatistics> GetInvitationStatisticsAsync(Guid eventId)
+    public async Task<IEnumerable<InvitationAggregate>> GetConfirmedAttendeesAsync(Guid eventId)
     {
         var invitations = await _invitationRepository.GetByEventIdAsync(eventId);
-        
-        var totalInvitations = invitations.Count();
-        var acceptedCount = invitations.Count(i => i.IsAccepted);
-        var maybeCount = invitations.Count(i => i.IsMaybe);
-        var declinedCount = invitations.Count(i => i.IsDeclined);
-        var pendingCount = invitations.Count(i => i.IsPending);
+        return invitations.Where(i => i.IsWillAttend);
+    }
 
-        return new InvitationStatistics(
-            totalInvitations,
-            acceptedCount,
-            maybeCount,
-            declinedCount,
-            pendingCount
-        );
+    public async Task<IEnumerable<InvitationAggregate>> GetTentativeAttendeesAsync(Guid eventId)
+    {
+        var invitations = await _invitationRepository.GetByEventIdAsync(eventId);
+        return invitations.Where(i => i.IsMaybeWillAttend);
+    }
+
+    public async Task<IEnumerable<InvitationAggregate>> GetUnrepliedInvitationsAsync(Guid eventId)
+    {
+        var invitations = await _invitationRepository.GetByEventIdAsync(eventId);
+        return invitations.Where(i => i.IsUnreplied);
+    }
+
+    public async Task<InvitationStatusSummary> GetInvitationStatusForEventAsync(Guid eventId)
+    {
+        var invitations = (await _invitationRepository.GetByEventIdAsync(eventId)).ToList();
+
+        return new InvitationStatusSummary(
+            invitations.Count,
+            invitations.Count(i => i.HasResponded),
+            invitations.Count(i => i.IsUnreplied),
+            invitations.Where(i => i.IsWillAttend).ToList().AsReadOnly(),
+            invitations.Where(i => i.IsMaybeWillAttend).ToList().AsReadOnly(),
+            invitations.Where(i => i.IsCannotAttend).ToList().AsReadOnly());
+    }
+
+    private async Task<InvitationAggregate> GetInvitationOrThrowAsync(Guid invitationId)
+    {
+        return await _invitationRepository.GetByIdAsync(invitationId)
+            ?? throw new DomainException($"Invitation with ID {invitationId} not found.");
     }
 }
 
-public record InvitationStatistics(
+public record InvitationStatusSummary(
     int TotalInvitations,
-    int AcceptedCount,
-    int MaybeCount,
-    int DeclinedCount,
-    int PendingCount
+    int RepliedCount,
+    int UnrepliedCount,
+    IReadOnlyList<InvitationAggregate> ConfirmedAttendees,
+    IReadOnlyList<InvitationAggregate> TentativeAttendees,
+    IReadOnlyList<InvitationAggregate> DeclinedAttendees
 );

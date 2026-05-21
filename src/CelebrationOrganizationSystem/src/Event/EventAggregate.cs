@@ -9,53 +9,52 @@ public class EventAggregate : AggregateRoot
     public EventType EventType { get; private set; }
     public DateTimeRange DateTimeRange { get; private set; }
     public Location Location { get; private set; }
-    public Guid OrganizerId { get; private set; }
-    public DateTime CreatedAt { get; private set; }
 
-    private readonly List<Guid> _attendeeIds = new();
-    private readonly List<Guid> _taskIds = new();
+    private readonly List<EventOrganizer> _organizers = [];
+    private readonly List<Guid> _attendeeIds = [];
+    private readonly List<Guid> _checklistTaskIds = [];
 
-    public EventAggregate(Guid id, string occasion, EventType eventType, DateTimeRange dateTimeRange, Location location, Guid organizerId) : base(id)
+    public EventAggregate(Guid id, string occasion, EventType eventType, DateTimeRange dateTimeRange, Location location, IEnumerable<EventOrganizer> organizers) : base(id)
     {
         Occasion = ValidateOccasion(occasion);
         EventType = eventType ?? throw new ArgumentNullException(nameof(eventType));
         DateTimeRange = dateTimeRange ?? throw new ArgumentNullException(nameof(dateTimeRange));
         Location = location ?? throw new ArgumentNullException(nameof(location));
-        OrganizerId = organizerId;
-        CreatedAt = DateTime.UtcNow;
+        AddInitialOrganizers(organizers);
     }
 
-    public EventAggregate(string occasion, EventType eventType, DateTimeRange dateTimeRange, Location location, Guid organizerId) : base()
+    public EventAggregate(string occasion, EventType eventType, DateTimeRange dateTimeRange, Location location, IEnumerable<EventOrganizer> organizers) : base()
     {
         Occasion = ValidateOccasion(occasion);
         EventType = eventType ?? throw new ArgumentNullException(nameof(eventType));
         DateTimeRange = dateTimeRange ?? throw new ArgumentNullException(nameof(dateTimeRange));
         Location = location ?? throw new ArgumentNullException(nameof(location));
-        OrganizerId = organizerId;
-        CreatedAt = DateTime.UtcNow;
+        AddInitialOrganizers(organizers);
     }
 
+    public IReadOnlyList<EventOrganizer> Organizers => _organizers.AsReadOnly();
+    public IReadOnlyList<Guid> OrganizerIds => _organizers.Select(o => o.OrganizerId).ToList().AsReadOnly();
+    public IReadOnlyList<Guid> AttendingOrganizerIds => _organizers.Where(o => o.IsAttending).Select(o => o.OrganizerId).ToList().AsReadOnly();
+    public IReadOnlyList<Guid> NonAttendingOrganizerIds => _organizers.Where(o => !o.IsAttending).Select(o => o.OrganizerId).ToList().AsReadOnly();
     public IReadOnlyList<Guid> AttendeeIds => _attendeeIds.AsReadOnly();
-    public IReadOnlyList<Guid> TaskIds => _taskIds.AsReadOnly();
+    public IReadOnlyList<Guid> ChecklistTaskIds => _checklistTaskIds.AsReadOnly();
 
-    public void UpdateOccasion(string newOccasion)
+    public void AddOrganizer(Guid organizerId, bool isAttending)
     {
-        Occasion = ValidateOccasion(newOccasion);
+        if (_organizers.Any(o => o.OrganizerId == organizerId))
+        {
+            throw new InvalidOperationException("Organizer is already assigned to this event.");
+        }
+
+        _organizers.Add(new EventOrganizer(organizerId, isAttending));
     }
 
-    public void UpdateEventType(EventType newEventType)
+    public void SetOrganizerAttendance(Guid organizerId, bool isAttending)
     {
-        EventType = newEventType ?? throw new ArgumentNullException(nameof(newEventType));
-    }
+        var organizer = _organizers.FirstOrDefault(o => o.OrganizerId == organizerId)
+            ?? throw new InvalidOperationException("Organizer is not assigned to this event.");
 
-    public void UpdateDateTimeRange(DateTimeRange newDateTimeRange)
-    {
-        DateTimeRange = newDateTimeRange ?? throw new ArgumentNullException(nameof(newDateTimeRange));
-    }
-
-    public void UpdateLocation(Location newLocation)
-    {
-        Location = newLocation ?? throw new ArgumentNullException(nameof(newLocation));
+        organizer.SetAttendance(isAttending);
     }
 
     public void AddAttendee(Guid attendeeId)
@@ -65,53 +64,49 @@ public class EventAggregate : AggregateRoot
             throw new ArgumentException("Attendee ID cannot be empty.", nameof(attendeeId));
         }
 
-        if (_attendeeIds.Contains(attendeeId))
+        if (!_attendeeIds.Contains(attendeeId))
         {
-            throw new InvalidOperationException("Attendee is already added to this event.");
+            _attendeeIds.Add(attendeeId);
         }
-
-        _attendeeIds.Add(attendeeId);
     }
 
-    public void RemoveAttendee(Guid attendeeId)
-    {
-        _attendeeIds.Remove(attendeeId);
-    }
-
-    public void AddTask(Guid taskId)
+    public void AddChecklistTask(Guid taskId)
     {
         if (taskId == Guid.Empty)
         {
-            throw new ArgumentException("Task ID cannot be empty.", nameof(taskId));
+            throw new ArgumentException("Checklist task ID cannot be empty.", nameof(taskId));
         }
 
-        if (_taskIds.Contains(taskId))
+        if (_checklistTaskIds.Contains(taskId))
         {
-            throw new InvalidOperationException("Task is already added to this event.");
+            throw new InvalidOperationException("Checklist task is already added to this event.");
         }
 
-        _taskIds.Add(taskId);
+        _checklistTaskIds.Add(taskId);
     }
 
-    public void RemoveTask(Guid taskId)
+    private void AddInitialOrganizers(IEnumerable<EventOrganizer> organizers)
     {
-        _taskIds.Remove(taskId);
-    }
+        if (organizers is null)
+        {
+            throw new ArgumentNullException(nameof(organizers));
+        }
 
-    public bool IsEventInPast()
-    {
-        return DateTimeRange.EndDateTime < DateTime.UtcNow;
-    }
+        var organizerList = organizers.ToList();
+        if (organizerList.Count == 0)
+        {
+            throw new ArgumentException("An event must have at least one organizer.", nameof(organizers));
+        }
 
-    public bool IsEventInFuture()
-    {
-        return DateTimeRange.StartDateTime > DateTime.UtcNow;
-    }
+        foreach (var organizer in organizerList)
+        {
+            if (_organizers.Any(o => o.OrganizerId == organizer.OrganizerId))
+            {
+                throw new ArgumentException("An event cannot contain the same organizer more than once.", nameof(organizers));
+            }
 
-    public bool IsEventCurrentlyHappening()
-    {
-        var now = DateTime.UtcNow;
-        return DateTimeRange.IsInRange(now);
+            _organizers.Add(organizer);
+        }
     }
 
     private static string ValidateOccasion(string occasion)

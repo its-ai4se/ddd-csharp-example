@@ -20,7 +20,7 @@ public abstract class ValueObject : IEquatable<ValueObject>
             .Aggregate((x, y) => x ^ y);
     }
 
-    public static bool operator ==(ValueObject left, ValueObject right) => Equals(left, right);
+    public static bool operator ==(ValueObject? left, ValueObject? right) => Equals(left, right);
 
-    public static bool operator !=(ValueObject left, ValueObject right) => !Equals(left, right);
+    public static bool operator !=(ValueObject? left, ValueObject? right) => !Equals(left, right);
 }

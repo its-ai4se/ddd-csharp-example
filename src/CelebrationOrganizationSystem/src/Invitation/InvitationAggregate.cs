@@ -6,55 +6,65 @@ namespace CelebrationOrganizationSystem.Domain.Invitation;
 public class InvitationAggregate : AggregateRoot
 {
     public Guid EventId { get; private set; }
-    public Guid AttendeeId { get; private set; }
+    public Guid? AttendeeId { get; private set; }
     public EmailAddress AttendeeEmail { get; private set; }
     public PersonName AttendeeName { get; private set; }
-    public DateTime SentAt { get; private set; }
     public InvitationResponse? Response { get; private set; }
 
-    public InvitationAggregate(Guid id, Guid eventId, Guid attendeeId, EmailAddress attendeeEmail, PersonName attendeeName) : base(id)
+    public InvitationAggregate(Guid id, Guid eventId, EmailAddress attendeeEmail, PersonName attendeeName) : base(id)
     {
-        EventId = eventId;
-        AttendeeId = attendeeId;
+        EventId = ValidateEventId(eventId);
         AttendeeEmail = attendeeEmail ?? throw new ArgumentNullException(nameof(attendeeEmail));
         AttendeeName = attendeeName ?? throw new ArgumentNullException(nameof(attendeeName));
-        SentAt = DateTime.UtcNow;
     }
 
-    public InvitationAggregate(Guid eventId, Guid attendeeId, EmailAddress attendeeEmail, PersonName attendeeName) : base()
+    public InvitationAggregate(Guid eventId, EmailAddress attendeeEmail, PersonName attendeeName) : base()
     {
-        EventId = eventId;
-        AttendeeId = attendeeId;
+        EventId = ValidateEventId(eventId);
         AttendeeEmail = attendeeEmail ?? throw new ArgumentNullException(nameof(attendeeEmail));
         AttendeeName = attendeeName ?? throw new ArgumentNullException(nameof(attendeeName));
-        SentAt = DateTime.UtcNow;
+    }
+
+    public void LinkToAttendee(Guid attendeeId)
+    {
+        if (attendeeId == Guid.Empty)
+        {
+            throw new ArgumentException("Attendee ID cannot be empty.", nameof(attendeeId));
+        }
+
+        if (AttendeeId.HasValue && AttendeeId.Value != attendeeId)
+        {
+            throw new InvalidOperationException("Invitation is already linked to a different attendee account.");
+        }
+
+        AttendeeId = attendeeId;
     }
 
     public void RespondToInvitation(InvitationStatus status)
     {
-        if (Response != null)
+        if (Response is not null)
         {
             throw new InvalidOperationException("Invitation has already been responded to.");
         }
 
-        Response = new InvitationResponse(status, DateTime.UtcNow);
+        Response = new InvitationResponse(status);
     }
 
-    public void UpdateResponse(InvitationStatus newStatus)
+    public bool HasResponded => Response is not null;
+    public bool IsWillAttend => Response?.Status == InvitationStatus.WillAttend;
+    public bool IsMaybeWillAttend => Response?.Status == InvitationStatus.MaybeWillAttend;
+    public bool IsCannotAttend => Response?.Status == InvitationStatus.CannotAttend;
+    public bool IsUnreplied => Response is null;
+
+    private static Guid ValidateEventId(Guid eventId)
     {
-        if (Response == null)
+        if (eventId == Guid.Empty)
         {
-            throw new InvalidOperationException("No response has been given yet.");
+            throw new ArgumentException("Event ID cannot be empty.", nameof(eventId));
         }
 
-        Response = new InvitationResponse(newStatus, DateTime.UtcNow);
+        return eventId;
     }
-
-    public bool HasResponded => Response != null;
-    public bool IsAccepted => Response?.Status == InvitationStatus.Accepted;
-    public bool IsMaybe => Response?.Status == InvitationStatus.Maybe;
-    public bool IsDeclined => Response?.Status == InvitationStatus.Declined;
-    public bool IsPending => Response == null || Response.Status == InvitationStatus.Pending;
 
     public override string ToString() => $"Invitation for {AttendeeName} ({AttendeeEmail}) to Event {EventId}";
 }
