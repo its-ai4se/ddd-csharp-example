@@ -1,6 +1,3 @@
-using TeamSportsScoutingSystem.Domain.Shared.Common;
-using TeamSportsScoutingSystem.Domain.Shared.ValueObjects;
-
 namespace TeamSportsScoutingSystem.Domain.Person;
 
 public class ScoutRole : UserRole
@@ -20,10 +17,5 @@ public class ScoutRole : UserRole
     public void PromoteToHeadScout()
     {
         IsHeadScout = true;
-    }
-
-    public void DemoteFromHeadScout()
-    {
-        IsHeadScout = false;
     }
 }

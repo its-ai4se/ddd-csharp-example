@@ -1,14 +1,13 @@
-using TeamSportsScoutingSystem.Domain.Shared.Services;
 using TeamSportsScoutingSystem.Domain.Person;
 using TeamSportsScoutingSystem.Domain.Person.Repositories;
 
 namespace TeamSportsScoutingSystem.Domain.Services;
 
-public class PersonManagementService : DomainServiceBase
+public class PersonManagementService
 {
     private readonly IPersonRepository _personRepository;
 
-    public PersonManagementService(IClock clock, IPersonRepository personRepository) : base(clock)
+    public PersonManagementService(IPersonRepository personRepository)
     {
         _personRepository = personRepository ?? throw new ArgumentNullException(nameof(personRepository));
     }
@@ -70,21 +69,4 @@ public class PersonManagementService : DomainServiceBase
         await _personRepository.UpdateAsync(person, cancellationToken);
     }
 
-    public async Task DemoteHeadScoutAsync(PersonAggregate person, CancellationToken cancellationToken = default)
-    {
-        var scoutRole = person.GetRole<ScoutRole>();
-        if (scoutRole == null)
-        {
-            throw new InvalidOperationException("Person is not registered as a scout.");
-        }
-
-        if (!scoutRole.IsHeadScout)
-        {
-            throw new InvalidOperationException("Person is not a head scout.");
-        }
-
-        scoutRole.DemoteFromHeadScout();
-        
-        await _personRepository.UpdateAsync(person, cancellationToken);
-    }
 }

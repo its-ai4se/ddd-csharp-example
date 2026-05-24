@@ -35,5 +35,23 @@ public class Recommendation : ValueObject
     public static readonly Recommendation FirstTeamPlayer = new("First Team Player", "Regular starter in the first team");
     public static readonly Recommendation ReserveTeamPlayer = new("Reserve Team Player", "Suitable for reserve team");
     public static readonly Recommendation ProspectivePlayer = new("Prospective Player", "Young player with potential");
-    public static readonly Recommendation NotGoodSigning = new("Not Good Signing", "Not recommended for signing");
+    public static readonly Recommendation NotGoodSigning = new("Not a Good Signing", "Not recommended for signing");
+
+    private static readonly Dictionary<string, Recommendation> _validRecommendations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Key Player"] = KeyPlayer,
+        ["First Team Player"] = FirstTeamPlayer,
+        ["Reserve Team Player"] = ReserveTeamPlayer,
+        ["Prospective Player"] = ProspectivePlayer,
+        ["Not a Good Signing"] = NotGoodSigning,
+    };
+
+    public static Recommendation Parse(string? type)
+    {
+        if (string.IsNullOrWhiteSpace(type))
+            throw new DomainException("rekomendasi wajib diisi");
+        if (!_validRecommendations.TryGetValue(type.Trim(), out var recommendation))
+            throw new DomainException("nilai rekomendasi tidak valid");
+        return recommendation;
+    }
 }

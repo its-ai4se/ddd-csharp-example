@@ -11,12 +11,12 @@ public class PlayerAttribute : ValueObject
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("Attribute name cannot be empty or whitespace.", nameof(name));
+            throw new DomainException("nama atribut wajib diisi");
         }
 
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new ArgumentException("Attribute value cannot be empty or whitespace.", nameof(value));
+            throw new DomainException("nilai atribut wajib diisi");
         }
 
         Name = name.Trim();

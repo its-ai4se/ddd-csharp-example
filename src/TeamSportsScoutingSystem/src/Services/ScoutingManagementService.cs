@@ -1,4 +1,4 @@
-using TeamSportsScoutingSystem.Domain.Shared.Services;
+using TeamSportsScoutingSystem.Domain.Shared.Common;
 using TeamSportsScoutingSystem.Domain.ScoutingAssignment;
 using TeamSportsScoutingSystem.Domain.ScoutingAssignment.Repositories;
 using TeamSportsScoutingSystem.Domain.ScoutingReport;
@@ -11,16 +11,16 @@ using TeamSportsScoutingSystem.Domain.Shared.ValueObjects;
 
 namespace TeamSportsScoutingSystem.Domain.Services;
 
-public class ScoutingManagementService : DomainServiceBase
+public class ScoutingManagementService
 {
     private readonly IScoutingAssignmentRepository _scoutingAssignmentRepository;
     private readonly IScoutingReportRepository _scoutingReportRepository;
     private readonly IPlayerRepository _playerRepository;
     private readonly IPersonRepository _personRepository;
 
-    public ScoutingManagementService(IClock clock, IScoutingAssignmentRepository scoutingAssignmentRepository, 
-        IScoutingReportRepository scoutingReportRepository, IPlayerRepository playerRepository, 
-        IPersonRepository personRepository) : base(clock)
+    public ScoutingManagementService(IScoutingAssignmentRepository scoutingAssignmentRepository,
+        IScoutingReportRepository scoutingReportRepository, IPlayerRepository playerRepository,
+        IPersonRepository personRepository)
     {
         _scoutingAssignmentRepository = scoutingAssignmentRepository ?? throw new ArgumentNullException(nameof(scoutingAssignmentRepository));
         _scoutingReportRepository = scoutingReportRepository ?? throw new ArgumentNullException(nameof(scoutingReportRepository));
@@ -28,36 +28,38 @@ public class ScoutingManagementService : DomainServiceBase
         _personRepository = personRepository ?? throw new ArgumentNullException(nameof(personRepository));
     }
 
-    public async Task<ScoutingAssignmentAggregate> CreateScoutingAssignmentAsync(Guid playerId, Guid assignedScoutId, 
-        string description, Guid? assignedByHeadScoutId = null, CancellationToken cancellationToken = default)
+    // SA-003: overload that rejects multiple player IDs
+    public Task<ScoutingAssignmentAggregate> CreateScoutingAssignmentAsync(Guid requestingHeadScoutId,
+        Guid playerId, Guid assignedScoutId, IEnumerable<Guid> playerIds,
+        CancellationToken cancellationToken = default)
     {
-        // Validate that the player exists
+        throw new DomainException("hanya satu pemain per assignment");
+    }
+
+    public async Task<ScoutingAssignmentAggregate> CreateScoutingAssignmentAsync(Guid requestingHeadScoutId,
+        Guid playerId, Guid assignedScoutId, CancellationToken cancellationToken = default)
+    {
+        var requestingPerson = await _personRepository.GetByIdAsync(requestingHeadScoutId, cancellationToken);
+        if (requestingPerson == null || !requestingPerson.HasRole<ScoutRole>() ||
+            requestingPerson.GetRole<ScoutRole>()!.IsHeadScout == false)
+            throw new DomainException("tidak memiliki izin");
+
+        if (playerId == Guid.Empty)
+            throw new DomainException("pemain target wajib ditentukan");
+
         var player = await _playerRepository.GetByIdAsync(playerId, cancellationToken);
         if (player == null)
-        {
             throw new InvalidOperationException($"Player with ID {playerId} not found.");
-        }
 
-        // Validate that the scout exists and has ScoutRole
-        var scout = await _personRepository.GetByIdAsync(assignedScoutId, cancellationToken);
-        if (scout == null || !scout.HasRole<ScoutRole>())
-        {
-            throw new InvalidOperationException($"Scout with ID {assignedScoutId} not found or not a scout.");
-        }
+        var assignedScout = await _personRepository.GetByIdAsync(assignedScoutId, cancellationToken);
+        if (assignedScout == null || !assignedScout.HasRole<ScoutRole>())
+            throw new DomainException("scout yang ditugaskan tidak valid");
 
-        // If assigned by head scout, validate that person exists and is head scout
-        if (assignedByHeadScoutId.HasValue)
-        {
-            var headScout = await _personRepository.GetByIdAsync(assignedByHeadScoutId.Value, cancellationToken);
-            if (headScout == null || !headScout.HasRole<ScoutRole>() || !headScout.GetRole<ScoutRole>()!.IsHeadScout)
-            {
-                throw new InvalidOperationException($"Head scout with ID {assignedByHeadScoutId.Value} not found or not a head scout.");
-            }
-        }
-
-        var assignment = new ScoutingAssignmentAggregate(playerId, assignedScoutId, description, assignedByHeadScoutId);
+        var assignment = new ScoutingAssignmentAggregate(
+            playerId: playerId,
+            assignedScoutId: assignedScoutId,
+            assignedByHeadScoutId: requestingHeadScoutId);
         await _scoutingAssignmentRepository.AddAsync(assignment, cancellationToken);
-        
         return assignment;
     }
 
@@ -65,101 +67,101 @@ public class ScoutingManagementService : DomainServiceBase
     {
         var assignment = await _scoutingAssignmentRepository.GetByIdAsync(assignmentId, cancellationToken);
         if (assignment == null)
-        {
             throw new InvalidOperationException($"Scouting assignment with ID {assignmentId} not found.");
-        }
 
         assignment.StartAssignment();
         await _scoutingAssignmentRepository.UpdateAsync(assignment, cancellationToken);
     }
 
-    public async Task<ScoutingReportAggregate> SubmitScoutingReportAsync(Guid playerId, Guid scoutId, Guid scoutingAssignmentId, 
-        string pros, string cons, Recommendation recommendation, string? additionalNotes = null, 
-        IEnumerable<PlayerAttribute>? observedAttributes = null, CancellationToken cancellationToken = default)
+    public async Task<ScoutingReportAggregate> SubmitScoutingReportAsync(Guid requestingPersonId, Guid playerId,
+        Guid scoutingAssignmentId, string pros, string cons, string recommendation,
+        CancellationToken cancellationToken = default)
     {
-        // Validate that the scouting assignment exists and is completed
+        var person = await _personRepository.GetByIdAsync(requestingPersonId, cancellationToken);
+        if (person == null || !person.HasRole<ScoutRole>())
+            throw new DomainException("tidak memiliki izin");
+
+        if (scoutingAssignmentId == Guid.Empty)
+            throw new DomainException("assignment ID wajib ada");
+
+        var rec = Recommendation.Parse(recommendation);
+
         var assignment = await _scoutingAssignmentRepository.GetByIdAsync(scoutingAssignmentId, cancellationToken);
         if (assignment == null)
-        {
             throw new InvalidOperationException($"Scouting assignment with ID {scoutingAssignmentId} not found.");
-        }
 
-        if (!assignment.IsCompleted)
-        {
-            throw new InvalidOperationException("Cannot submit report for an incomplete scouting assignment.");
-        }
+        if (assignment.AssignedScoutId != requestingPersonId)
+            throw new DomainException("hanya scout yang ditugaskan yang dapat mengajukan laporan");
 
-        // Validate that the scout matches the assignment
-        if (assignment.AssignedScoutId != scoutId)
-        {
-            throw new InvalidOperationException("Scout ID does not match the assignment.");
-        }
-
-        // Validate that the player matches the assignment
-        if (assignment.PlayerId != playerId)
-        {
-            throw new InvalidOperationException("Player ID does not match the assignment.");
-        }
-
-        var report = new ScoutingReportAggregate(playerId, scoutId, scoutingAssignmentId, pros, cons, recommendation, additionalNotes);
-        
-        if (observedAttributes != null)
-        {
-            foreach (var attribute in observedAttributes)
-            {
-                report.AddObservedAttribute(attribute);
-            }
-        }
-
+        var report = new ScoutingReportAggregate(playerId, requestingPersonId, scoutingAssignmentId, pros, cons, rec);
         await _scoutingReportRepository.AddAsync(report, cancellationToken);
-        
         return report;
     }
 
-    public async Task CompleteScoutingAssignmentAsync(Guid assignmentId, string? notes = null, CancellationToken cancellationToken = default)
+    public async Task CompleteScoutingAssignmentAsync(Guid assignmentId, CancellationToken cancellationToken = default)
     {
         var assignment = await _scoutingAssignmentRepository.GetByIdAsync(assignmentId, cancellationToken);
         if (assignment == null)
-        {
             throw new InvalidOperationException($"Scouting assignment with ID {assignmentId} not found.");
-        }
 
-        assignment.CompleteAssignment(notes);
+        var reports = await _scoutingReportRepository.GetByScoutingAssignmentAsync(assignmentId, cancellationToken);
+        if (!reports.Any())
+            throw new DomainException("scouting report wajib disubmit sebelum assignment diselesaikan");
+
+        assignment.CompleteAssignment();
         await _scoutingAssignmentRepository.UpdateAsync(assignment, cancellationToken);
     }
 
-    public async Task<IEnumerable<ScoutingReportAggregate>> GetReportsForPlayerAsync(Guid playerId, CancellationToken cancellationToken = default)
+    public async Task ReviewScoutingReportAsync(Guid reportId, Guid headScoutId,
+        CancellationToken cancellationToken = default)
     {
-        return await _scoutingReportRepository.GetByPlayerAsync(playerId, cancellationToken);
+        var person = await _personRepository.GetByIdAsync(headScoutId, cancellationToken);
+        if (person == null || !person.HasRole<ScoutRole>() || person.GetRole<ScoutRole>()!.IsHeadScout == false)
+            throw new DomainException("tidak memiliki izin");
+
+        var report = await _scoutingReportRepository.GetByIdAsync(reportId, cancellationToken);
+        if (report == null)
+            throw new InvalidOperationException($"Scouting report with ID {reportId} not found.");
+
+        report.MarkAsReviewed();
+        await _scoutingReportRepository.UpdateAsync(report, cancellationToken);
     }
 
-    public async Task<IEnumerable<ScoutingReportAggregate>> GetPositiveRecommendationsAsync(CancellationToken cancellationToken = default)
+    public async Task MovePlayerToShortListWithApprovalAsync(Guid playerId, Guid headCoachId, Guid headScoutId,
+        CancellationToken cancellationToken = default)
     {
-        return await _scoutingReportRepository.GetPositiveRecommendationsAsync(cancellationToken);
-    }
+        var headCoach = await _personRepository.GetByIdAsync(headCoachId, cancellationToken);
+        if (headCoach == null || !headCoach.HasRole<HeadCoachRole>())
+            throw new DomainException("persetujuan Head Coach diperlukan");
 
-    public async Task MovePlayerToShortListBasedOnReportsAsync(Guid playerId, CancellationToken cancellationToken = default)
-    {
+        var headScout = await _personRepository.GetByIdAsync(headScoutId, cancellationToken);
+        if (headScout == null || !headScout.HasRole<ScoutRole>() || headScout.GetRole<ScoutRole>()!.IsHeadScout == false)
+            throw new DomainException("persetujuan Head Scout diperlukan");
+
         var reports = await _scoutingReportRepository.GetByPlayerAsync(playerId, cancellationToken);
-        if (!reports.Any())
-        {
-            throw new InvalidOperationException($"No scouting reports found for player {playerId}.");
-        }
-
-        // Check if there are any positive recommendations
-        var hasPositiveRecommendation = reports.Any(r => r.IsPositiveRecommendation);
-        if (!hasPositiveRecommendation)
-        {
-            throw new InvalidOperationException("Player cannot be moved to short list without positive recommendations.");
-        }
+        if (!reports.Any(r => r.IsReviewed))
+            throw new DomainException("minimal satu scouting report yang sudah direview diperlukan");
 
         var player = await _playerRepository.GetByIdAsync(playerId, cancellationToken);
         if (player == null)
-        {
             throw new InvalidOperationException($"Player with ID {playerId} not found.");
-        }
 
         player.MoveToList(PlayerListType.ShortList);
+        await _playerRepository.UpdateAsync(player, cancellationToken);
+    }
+
+    public async Task IssueFinalSigningRecommendationAsync(Guid playerId, Guid requestingPersonId,
+        CancellationToken cancellationToken = default)
+    {
+        var person = await _personRepository.GetByIdAsync(requestingPersonId, cancellationToken);
+        if (person == null || !person.HasRole<ScoutRole>() || person.GetRole<ScoutRole>()!.IsHeadScout == false)
+            throw new DomainException("tidak memiliki izin");
+
+        var player = await _playerRepository.GetByIdAsync(playerId, cancellationToken);
+        if (player == null)
+            throw new InvalidOperationException($"Player with ID {playerId} not found.");
+
+        player.MarkFinalRecommendationIssued();
         await _playerRepository.UpdateAsync(player, cancellationToken);
     }
 }

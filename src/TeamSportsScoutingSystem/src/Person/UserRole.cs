@@ -1,5 +1,4 @@
 using TeamSportsScoutingSystem.Domain.Shared.Common;
-using TeamSportsScoutingSystem.Domain.Shared.ValueObjects;
 
 namespace TeamSportsScoutingSystem.Domain.Person;
 
