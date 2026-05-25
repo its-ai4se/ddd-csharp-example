@@ -11,9 +11,6 @@ public class AutomationRuleName : ValueObject
         if (string.IsNullOrWhiteSpace(value))
             throw new DomainException("Automation rule name cannot be empty.");
         
-        if (value.Length > 100)
-            throw new DomainException("Automation rule name cannot exceed 100 characters.");
-        
         Value = value.Trim();
     }
 

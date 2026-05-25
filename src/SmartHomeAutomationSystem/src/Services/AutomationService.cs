@@ -1,100 +1,98 @@
-using SmartHomeAutomationSystem.Domain.Shared.Services;
 using SmartHomeAutomationSystem.Domain.Automation;
 using SmartHomeAutomationSystem.Domain.Automation.Repositories;
+using SmartHomeAutomationSystem.Domain.Automation.Precondition;
+using SmartHomeAutomationSystem.Domain.Home;
 using SmartHomeAutomationSystem.Domain.Shared.ValueObjects;
 using SmartHomeAutomationSystem.Domain.Shared.Common;
 
 namespace SmartHomeAutomationSystem.Domain.Services;
 
-public class AutomationService : DomainServiceBase
+public class AutomationService
 {
-    private readonly IAutomationRuleRepository _automationRuleRepository;
+    private readonly IAutomationRuleRepository _ruleRepository;
 
-    public AutomationService(
-        IClock clock,
-        IAutomationRuleRepository automationRuleRepository) : base(clock)
+    public AutomationService(IAutomationRuleRepository ruleRepository)
     {
-        _automationRuleRepository = automationRuleRepository ?? throw new ArgumentNullException(nameof(automationRuleRepository));
+        _ruleRepository = ruleRepository ?? throw new ArgumentNullException(nameof(ruleRepository));
+    }
+
+    private static void EnsureOwner(Guid requestingUserId, HomeAggregate home)
+    {
+        if (!home.IsOwner(requestingUserId))
+            throw new DomainException("Only the home owner may manage automation rules.");
+    }
+
+    private static void EnsureRuleBelongsToHome(AutomationRuleAggregate rule, HomeAggregate home)
+    {
+        if (rule.HomeId != home.Id)
+            throw new DomainException("Rule does not belong to the specified home.");
     }
 
     public async Task<AutomationRuleAggregate> CreateRuleAsync(
-        AutomationRuleName name,
-        Guid homeId,
-        Guid createdByUserId)
+        AutomationRuleName name, HomeAggregate home, Guid requestingUserId)
     {
-        var rule = new AutomationRuleAggregate(name, homeId, createdByUserId);
-        await _automationRuleRepository.SaveAsync(rule);
+        EnsureOwner(requestingUserId, home);
+        var rule = new AutomationRuleAggregate(name, home.Id);
+        await _ruleRepository.SaveAsync(rule);
         return rule;
     }
 
-    public async Task AddTimeTriggerAsync(
-        Guid ruleId,
-        TimeSpan time,
-        List<DayOfWeek> days)
+    public async Task SetPreconditionAsync(
+        Guid ruleId, IPreconditionExpression precondition, HomeAggregate home, Guid requestingUserId)
     {
-        var rule = await _automationRuleRepository.GetByIdAsync(ruleId);
-        if (rule == null)
-            throw new DomainException("Automation rule not found.");
-
-        var trigger = new TimeTrigger(ruleId, time, days);
-        rule.AddTrigger(trigger);
-        await _automationRuleRepository.SaveAsync(rule);
+        EnsureOwner(requestingUserId, home);
+        var rule = await GetRuleAsync(ruleId);
+        EnsureRuleBelongsToHome(rule, home);
+        rule.SetPrecondition(precondition);
+        await _ruleRepository.SaveAsync(rule);
     }
 
-    public async Task AddDeviceActionAsync(
-        Guid ruleId,
-        Guid deviceId,
-        string command,
-        Dictionary<string, object>? parameters = null)
+    public async Task SetActionSequenceAsync(
+        Guid ruleId, ActionSequence sequence, HomeAggregate home, Guid requestingUserId)
     {
-        var rule = await _automationRuleRepository.GetByIdAsync(ruleId);
-        if (rule == null)
-            throw new DomainException("Automation rule not found.");
-
-        var action = new DeviceAction(ruleId, deviceId, command, parameters);
-        rule.AddAction(action);
-        await _automationRuleRepository.SaveAsync(rule);
+        EnsureOwner(requestingUserId, home);
+        var rule = await GetRuleAsync(ruleId);
+        EnsureRuleBelongsToHome(rule, home);
+        rule.SetActionSequence(sequence);
+        await _ruleRepository.SaveAsync(rule);
     }
 
-    public async Task EnableRuleAsync(Guid ruleId)
+    public async Task EnableRuleAsync(Guid ruleId, HomeAggregate home, Guid requestingUserId)
     {
-        var rule = await _automationRuleRepository.GetByIdAsync(ruleId);
-        if (rule == null)
-            throw new DomainException("Automation rule not found.");
-
+        EnsureOwner(requestingUserId, home);
+        var rule = await GetRuleAsync(ruleId);
+        EnsureRuleBelongsToHome(rule, home);
         rule.Enable();
-        await _automationRuleRepository.SaveAsync(rule);
+        await _ruleRepository.SaveAsync(rule);
     }
 
-    public async Task DisableRuleAsync(Guid ruleId)
+    public async Task DisableRuleAsync(Guid ruleId, HomeAggregate home, Guid requestingUserId)
     {
-        var rule = await _automationRuleRepository.GetByIdAsync(ruleId);
-        if (rule == null)
-            throw new DomainException("Automation rule not found.");
-
+        EnsureOwner(requestingUserId, home);
+        var rule = await GetRuleAsync(ruleId);
+        EnsureRuleBelongsToHome(rule, home);
         rule.Disable();
-        await _automationRuleRepository.SaveAsync(rule);
+        await _ruleRepository.SaveAsync(rule);
     }
 
-    public async Task ExecuteRulesAsync(Guid homeId)
+    public async Task ExecuteRulesAsync(Guid homeId, EvaluationContext context)
     {
-        var rules = await _automationRuleRepository.GetByHomeIdAsync(homeId);
-        var executableRules = rules.Where(r => r.CanExecute()).ToList();
+        var rules = await _ruleRepository.GetByHomeIdAsync(homeId);
+        var activeRuleIds = rules.Where(r => r.IsEnabled).Select(r => r.Id).ToHashSet();
 
-        foreach (var rule in executableRules)
+        foreach (var rule in rules)
         {
-            foreach (var action in rule.Actions)
+            if (rule.ConflictsWithRuleIds.Any(id => activeRuleIds.Contains(id)))
+                continue;
+            if (rule.CanExecute(context))
             {
-                action.Execute();
+                rule.MarkAsTriggered();
+                await _ruleRepository.SaveAsync(rule);
             }
-            
-            rule.MarkAsExecuted();
-            await _automationRuleRepository.SaveAsync(rule);
         }
     }
 
-    public async Task<List<AutomationRuleAggregate>> GetRulesByHomeAsync(Guid homeId)
-    {
-        return await _automationRuleRepository.GetByHomeIdAsync(homeId);
-    }
+    private async Task<AutomationRuleAggregate> GetRuleAsync(Guid ruleId)
+        => await _ruleRepository.GetByIdAsync(ruleId)
+            ?? throw new DomainException("Automation rule not found.");
 }

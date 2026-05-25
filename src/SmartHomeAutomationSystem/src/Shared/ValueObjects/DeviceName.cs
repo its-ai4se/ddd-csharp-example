@@ -11,9 +11,6 @@ public class DeviceName : ValueObject
         if (string.IsNullOrWhiteSpace(value))
             throw new DomainException("Device name cannot be empty.");
         
-        if (value.Length > 100)
-            throw new DomainException("Device name cannot exceed 100 characters.");
-        
         Value = value.Trim();
     }
 

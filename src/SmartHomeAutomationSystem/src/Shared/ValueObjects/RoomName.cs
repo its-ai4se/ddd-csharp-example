@@ -11,9 +11,6 @@ public class RoomName : ValueObject
         if (string.IsNullOrWhiteSpace(value))
             throw new DomainException("Room name cannot be empty.");
         
-        if (value.Length > 50)
-            throw new DomainException("Room name cannot exceed 50 characters.");
-        
         Value = value.Trim();
     }
 

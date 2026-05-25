@@ -1,188 +1,126 @@
 using SmartHomeAutomationSystem.Domain.Shared.Common;
 using SmartHomeAutomationSystem.Domain.Shared.ValueObjects;
+using SmartHomeAutomationSystem.Domain.Automation.Precondition;
+using SmartHomeAutomationSystem.Domain.Automation.Events;
 
 namespace SmartHomeAutomationSystem.Domain.Automation;
 
 public class AutomationRuleAggregate : AggregateRoot
 {
     public AutomationRuleName Name { get; private set; }
-    public Guid HomeId { get; private set; }
-    public Guid CreatedByUserId { get; private set; }
-    public List<Trigger> Triggers { get; private set; }
-    public List<Action> Actions { get; private set; }
+    public Guid HomeId { get; }
+    public IPreconditionExpression? Precondition { get; private set; }
+    public ActionSequence? ActionSequence { get; private set; }
     public bool IsEnabled { get; private set; }
-    public DateTime CreatedAt { get; private set; }
-    public DateTime? LastExecuted { get; private set; }
+    public DateTime? LastTriggeredAt { get; private set; }
 
-    public AutomationRuleAggregate(AutomationRuleName name, Guid homeId, Guid createdByUserId) : base()
+    private readonly List<Guid> _dependsOnRuleIds = [];
+    private readonly List<Guid> _conflictsWithRuleIds = [];
+    public IReadOnlyList<Guid> DependsOnRuleIds => _dependsOnRuleIds.AsReadOnly();
+    public IReadOnlyList<Guid> ConflictsWithRuleIds => _conflictsWithRuleIds.AsReadOnly();
+
+    public AutomationRuleAggregate(AutomationRuleName name, Guid homeId) : base()
     {
         if (homeId == Guid.Empty)
             throw new DomainException("Home ID cannot be empty.");
-        
-        if (createdByUserId == Guid.Empty)
-            throw new DomainException("Created by user ID cannot be empty.");
-        
         Name = name ?? throw new ArgumentNullException(nameof(name));
         HomeId = homeId;
-        CreatedByUserId = createdByUserId;
-        Triggers = new List<Trigger>();
-        Actions = new List<Action>();
-        IsEnabled = true;
-        CreatedAt = DateTime.UtcNow;
+        IsEnabled = false;
     }
 
-    public void AddTrigger(Trigger trigger)
+    private void EnsureDeactivated()
     {
-        if (trigger == null)
-            throw new ArgumentNullException(nameof(trigger));
-        
-        Triggers.Add(trigger);
+        if (IsEnabled)
+            throw new DomainException("Rule must be deactivated before editing.");
     }
 
-    public void RemoveTrigger(Guid triggerId)
+    public void SetPrecondition(IPreconditionExpression precondition)
     {
-        var trigger = Triggers.FirstOrDefault(t => t.Id == triggerId);
-        if (trigger == null)
-            throw new DomainException("Trigger not found.");
-        
-        Triggers.Remove(trigger);
+        EnsureDeactivated();
+        Precondition = precondition ?? throw new ArgumentNullException(nameof(precondition));
     }
 
-    public void AddAction(Action action)
+    public void SetActionSequence(ActionSequence sequence)
     {
-        if (action == null)
-            throw new ArgumentNullException(nameof(action));
-        
-        Actions.Add(action);
-    }
-
-    public void RemoveAction(Guid actionId)
-    {
-        var action = Actions.FirstOrDefault(a => a.Id == actionId);
-        if (action == null)
-            throw new DomainException("Action not found.");
-        
-        Actions.Remove(action);
+        EnsureDeactivated();
+        ActionSequence = sequence ?? throw new ArgumentNullException(nameof(sequence));
     }
 
     public void Enable()
     {
-        if (Triggers.Count == 0)
-            throw new DomainException("Cannot enable rule without triggers.");
-        
-        if (Actions.Count == 0)
-            throw new DomainException("Cannot enable rule without actions.");
-        
+        if (Precondition is null)
+            throw new DomainException("Cannot enable rule without a precondition.");
+        if (ActionSequence is null)
+            throw new DomainException("Cannot enable rule without an action sequence.");
         IsEnabled = true;
     }
 
-    public void Disable()
+    public void Disable() => IsEnabled = false;
+
+    public void MarkAsTriggered()
     {
-        IsEnabled = false;
+        LastTriggeredAt = DateTime.UtcNow;
+        AddDomainEvent(new AutomationRuleTriggeredEvent(Id, LastTriggeredAt.Value));
     }
 
-    public void UpdateName(AutomationRuleName name)
+    public bool CanExecute(EvaluationContext context)
+        => IsEnabled && Precondition is not null && Precondition.Evaluate(context);
+
+    public void AddDependency(Guid ruleId)
     {
-        Name = name ?? throw new ArgumentNullException(nameof(name));
+        EnsureDeactivated();
+        if (ruleId == Guid.Empty || ruleId == Id)
+            throw new DomainException("Invalid dependency rule ID.");
+        if (!_dependsOnRuleIds.Contains(ruleId))
+            _dependsOnRuleIds.Add(ruleId);
     }
 
-    public void MarkAsExecuted()
+    /// <summary>
+    /// Adds a dependency with circular dependency detection.
+    /// Pass allRules to enable cycle detection (AR-030).
+    /// </summary>
+    public void AddDependency(Guid ruleId, IEnumerable<AutomationRuleAggregate> allRules)
     {
-        LastExecuted = DateTime.UtcNow;
+        EnsureDeactivated();
+        if (ruleId == Guid.Empty || ruleId == Id)
+            throw new DomainException("Invalid dependency rule ID.");
+
+        // Check for circular dependency: if ruleId already depends on this rule (directly or transitively)
+        var ruleMap = allRules.ToDictionary(r => r.Id);
+        if (WouldCreateCycle(ruleId, ruleMap))
+            throw new DomainException("Circular dependency detected between automation rules.");
+
+        if (!_dependsOnRuleIds.Contains(ruleId))
+            _dependsOnRuleIds.Add(ruleId);
     }
 
-    public bool CanExecute()
+    private bool WouldCreateCycle(Guid targetId, Dictionary<Guid, AutomationRuleAggregate> ruleMap)
     {
-        return IsEnabled && Triggers.All(t => t.IsTriggered()) && Actions.Count > 0;
-    }
-}
-
-public abstract class Trigger : Entity
-{
-    public Guid RuleId { get; protected set; }
-    public string TriggerType { get; protected set; }
-
-    protected Trigger(Guid ruleId, string triggerType) : base()
-    {
-        RuleId = ruleId;
-        TriggerType = triggerType;
-    }
-
-    public abstract bool IsTriggered();
-}
-
-public abstract class Action : Entity
-{
-    public Guid RuleId { get; protected set; }
-    public string ActionType { get; protected set; }
-
-    protected Action(Guid ruleId, string actionType) : base()
-    {
-        RuleId = ruleId;
-        ActionType = actionType;
-    }
-
-    public abstract void Execute();
-}
-
-public class DeviceStatusTrigger : Trigger
-{
-    public Guid DeviceId { get; private set; }
-    public string ExpectedStatus { get; private set; }
-
-    public DeviceStatusTrigger(Guid ruleId, Guid deviceId, string expectedStatus) 
-        : base(ruleId, "DeviceStatus")
-    {
-        DeviceId = deviceId;
-        ExpectedStatus = expectedStatus;
-    }
-
-    public override bool IsTriggered()
-    {
-        // This would typically check the actual device status
-        // For now, we'll return false as a placeholder
+        // BFS/DFS: check if targetId transitively depends on this.Id
+        var visited = new HashSet<Guid>();
+        var queue = new Queue<Guid>();
+        queue.Enqueue(targetId);
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (current == Id) return true;
+            if (!visited.Add(current)) continue;
+            if (ruleMap.TryGetValue(current, out var rule))
+                foreach (var dep in rule._dependsOnRuleIds)
+                    queue.Enqueue(dep);
+        }
         return false;
     }
-}
 
-public class TimeTrigger : Trigger
-{
-    public TimeSpan Time { get; private set; }
-    public List<DayOfWeek> Days { get; private set; }
-
-    public TimeTrigger(Guid ruleId, TimeSpan time, List<DayOfWeek> days) 
-        : base(ruleId, "Time")
+    public void AddConflict(Guid ruleId)
     {
-        Time = time;
-        Days = days ?? new List<DayOfWeek>();
+        EnsureDeactivated();
+        if (ruleId == Guid.Empty || ruleId == Id)
+            throw new DomainException("Invalid conflict rule ID.");
+        if (!_conflictsWithRuleIds.Contains(ruleId))
+            _conflictsWithRuleIds.Add(ruleId);
     }
 
-    public override bool IsTriggered()
-    {
-        var now = DateTime.Now;
-        return Days.Contains(now.DayOfWeek) && 
-               now.TimeOfDay.Hours == Time.Hours && 
-               now.TimeOfDay.Minutes == Time.Minutes;
-    }
-}
-
-public class DeviceAction : Action
-{
-    public Guid DeviceId { get; private set; }
-    public string Command { get; private set; }
-    public Dictionary<string, object> Parameters { get; private set; }
-
-    public DeviceAction(Guid ruleId, Guid deviceId, string command, Dictionary<string, object>? parameters = null) 
-        : base(ruleId, "Device")
-    {
-        DeviceId = deviceId;
-        Command = command;
-        Parameters = parameters ?? new Dictionary<string, object>();
-    }
-
-    public override void Execute()
-    {
-        // This would typically send the command to the device
-        // For now, we'll just mark it as executed
-    }
+    public bool HasConflictWith(Guid ruleId) => _conflictsWithRuleIds.Contains(ruleId);
+    public bool DependsOn(Guid ruleId) => _dependsOnRuleIds.Contains(ruleId);
 }
