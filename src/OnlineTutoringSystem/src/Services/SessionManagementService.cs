@@ -1,5 +1,3 @@
-using OnlineTutoringSystem.Domain.Course;
-using OnlineTutoringSystem.Domain.Course.Repositories;
 using OnlineTutoringSystem.Domain.Person;
 using OnlineTutoringSystem.Domain.Person.Repositories;
 using OnlineTutoringSystem.Domain.Session;
@@ -10,120 +8,113 @@ using OnlineTutoringSystem.Domain.Shared.ValueObjects;
 
 namespace OnlineTutoringSystem.Domain.Services;
 
-public class SessionManagementService : DomainServiceBase
+public class SessionManagementService
 {
     private readonly ISessionRepository _sessionRepository;
-    private readonly ICourseRepository _courseRepository;
+    private readonly IBookingRequestRepository _bookingRequestRepository;
     private readonly IPersonRepository _personRepository;
+    private readonly IClock _clock;
 
-    public SessionManagementService(IClock clock, ISessionRepository sessionRepository, ICourseRepository courseRepository, IPersonRepository personRepository) : base(clock)
+    public SessionManagementService(IClock clock, ISessionRepository sessionRepository,
+        IBookingRequestRepository bookingRequestRepository, IPersonRepository personRepository)
     {
-        _sessionRepository = sessionRepository ?? throw new ArgumentNullException(nameof(sessionRepository));
-        _courseRepository = courseRepository ?? throw new ArgumentNullException(nameof(courseRepository));
-        _personRepository = personRepository ?? throw new ArgumentNullException(nameof(personRepository));
+        _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+        _sessionRepository = sessionRepository;
+        _bookingRequestRepository = bookingRequestRepository;
+        _personRepository = personRepository;
     }
 
-    public async Task<SessionAggregate> ScheduleSessionAsync(Guid courseId, Guid studentId, DateTime scheduledStartTime, Duration duration)
+    public async Task<BookingRequest> RequestBookingAsync(Guid studentId, Guid tutorId, Subject subject, ExpertiseLevel level, DateTime suggestedTime)
     {
-        // Verify course exists and is active
-        var course = await _courseRepository.GetByIdAsync(courseId);
-        if (course == null)
-            throw new DomainException("Course not found.");
+        if (level is null)
+            throw new DomainException("Level is required.");
 
-        if (course.Status != CourseStatus.Active)
-            throw new DomainException("Course is not active.");
+        if (suggestedTime == default || suggestedTime <= _clock.UtcNow)
+            throw new DomainException("Suggested date and time must be in the future.");
 
-        // Verify student exists and has student role
         var student = await _personRepository.GetByIdAsync(studentId);
-        if (student == null)
+        if (student == null || !student.HasRole<StudentRole>())
             throw new DomainException("Student not found.");
 
-        if (!student.HasRole<StudentRole>())
-            throw new DomainException("Person is not registered as a student.");
+        var tutor = await _personRepository.GetByIdAsync(tutorId) ?? throw new DomainException("Tutor not found.");
+        var tutorRole = tutor.GetRole<TutorRole>() ?? throw new DomainException("Person is not registered as a tutor.");
+        if (studentId == tutorId)
+            throw new DomainException("A tutor cannot request tutoring from themselves.");
 
-        // Check for scheduling conflicts
-        var conflictingSessions = await _sessionRepository.GetScheduledSessionsAsync(scheduledStartTime, scheduledStartTime.Add(duration.ToTimeSpan()));
-        if (conflictingSessions.Any(s => s.TutorId == course.TutorId || s.StudentId == studentId))
-            throw new DomainException("Scheduling conflict detected.");
+        if (tutorRole.GetOffer(subject, level) is null)
+            throw new DomainException($"Tutor does not offer {subject} at {level} level.");
 
-        // Calculate price based on course hourly rate and session duration
-        var price = course.PricePerHour * (duration.Minutes / 60m);
+        var request = new BookingRequest(tutorId, studentId, subject, level, suggestedTime);
+        await _bookingRequestRepository.SaveAsync(request);
+        return request;
+    }
 
-        var session = new SessionAggregate(courseId, course.TutorId, studentId, scheduledStartTime, duration, price);
+    public async Task<SessionAggregate> TutorConfirmBookingAsync(Guid bookingRequestId, Duration duration)
+    {
+        var request = await _bookingRequestRepository.GetByIdAsync(bookingRequestId) ?? throw new DomainException("Booking request not found.");
+        request.TutorConfirm();
+        await _bookingRequestRepository.SaveAsync(request);
+
+        return await CreateSessionFromRequest(request, duration);
+    }
+
+    public async Task ProposeAlternativeTimeAsync(Guid bookingRequestId, DateTime alternativeTime)
+    {
+        var request = await _bookingRequestRepository.GetByIdAsync(bookingRequestId) ?? throw new DomainException("Booking request not found.");
+
+        request.ProposeAlternativeTime(alternativeTime);
+        await _bookingRequestRepository.SaveAsync(request);
+    }
+
+    public async Task<SessionAggregate> StudentAcceptBookingAsync(Guid bookingRequestId, Duration duration)
+    {
+        var request = await _bookingRequestRepository.GetByIdAsync(bookingRequestId) ?? throw new DomainException("Booking request not found.");
+
+        request.StudentAccept();
+        await _bookingRequestRepository.SaveAsync(request);
+
+        return await CreateSessionFromRequest(request, duration);
+    }
+
+    private async Task<SessionAggregate> CreateSessionFromRequest(BookingRequest request, Duration duration)
+    {
+        var tutor = await _personRepository.GetByIdAsync(request.TutorId) ?? throw new DomainException("Tutor not found.");
+        var offer = tutor.GetRole<TutorRole>()?.GetOffer(request.Subject, request.Level) ?? throw new DomainException("Offer not found.");
+        var price = offer.HourlyPrice * (duration.Minutes / 60m);
+
+        var session = request.CreateSession(price);
         await _sessionRepository.SaveAsync(session);
         return session;
     }
 
-    public async Task RescheduleSessionAsync(Guid sessionId, DateTime newStartTime)
+    public async Task StartSessionAsync(Guid sessionId)
     {
-        var session = await _sessionRepository.GetByIdAsync(sessionId);
-        if (session == null)
-            throw new DomainException("Session not found.");
-
-        // Check for scheduling conflicts
-        var conflictingSessions = await _sessionRepository.GetScheduledSessionsAsync(newStartTime, newStartTime.Add(session.Duration.ToTimeSpan()));
-        if (conflictingSessions.Any(s => (s.TutorId == session.TutorId || s.StudentId == session.StudentId) && s.Id != sessionId))
-            throw new DomainException("Scheduling conflict detected.");
-
-        session.Reschedule(newStartTime);
+        var session = await _sessionRepository.GetByIdAsync(sessionId) ?? throw new DomainException("Session not found.");
+        session.Start();
         await _sessionRepository.SaveAsync(session);
     }
 
-    public async Task StartSessionAsync(Guid sessionId, string? meetingLink = null)
+    public async Task CompleteSessionAsync(Guid sessionId)
     {
-        var session = await _sessionRepository.GetByIdAsync(sessionId);
-        if (session == null)
-            throw new DomainException("Session not found.");
-
-        session.Start(meetingLink);
+        var session = await _sessionRepository.GetByIdAsync(sessionId) ?? throw new DomainException("Session not found.");
+        session.Complete();
         await _sessionRepository.SaveAsync(session);
     }
 
-    public async Task CompleteSessionAsync(Guid sessionId, string? notes = null)
+    public async Task CancelSessionAsync(Guid sessionId, CancelledBy cancelledBy)
     {
-        var session = await _sessionRepository.GetByIdAsync(sessionId);
-        if (session == null)
-            throw new DomainException("Session not found.");
-
-        session.Complete(notes);
+        var session = await _sessionRepository.GetByIdAsync(sessionId) ?? throw new DomainException("Session not found.");
+        session.Cancel(cancelledBy, _clock.UtcNow);
         await _sessionRepository.SaveAsync(session);
     }
 
-    public async Task CancelSessionAsync(Guid sessionId, string? reason = null)
+    public async Task<BookingRequest> ScheduleFollowUpAsync(Guid sessionId, DateTime proposedTime)
     {
-        var session = await _sessionRepository.GetByIdAsync(sessionId);
-        if (session == null)
-            throw new DomainException("Session not found.");
+        var session = await _sessionRepository.GetByIdAsync(sessionId) ?? throw new DomainException("Session not found.");
 
-        session.Cancel(reason);
-        await _sessionRepository.SaveAsync(session);
+        var followUp = session.ScheduleFollowUp(proposedTime);
+        await _bookingRequestRepository.SaveAsync(followUp);
+        return followUp;
     }
 
-    public async Task<List<SessionAggregate>> GetUpcomingSessionsAsync(Guid personId, bool isTutor)
-    {
-        var sessions = isTutor 
-            ? await _sessionRepository.GetByTutorIdAsync(personId)
-            : await _sessionRepository.GetByStudentIdAsync(personId);
-
-        return sessions.Where(s => s.Status == SessionStatus.Scheduled && s.ScheduledStartTime > Clock.UtcNow)
-                      .OrderBy(s => s.ScheduledStartTime)
-                      .ToList();
-    }
-
-    public async Task<List<SessionAggregate>> GetOverdueSessionsAsync()
-    {
-        var sessions = await _sessionRepository.GetByStatusAsync(SessionStatus.Scheduled);
-        return sessions.Where(s => s.IsOverdue()).ToList();
-    }
-
-    public async Task<List<SessionAggregate>> GetSessionHistoryAsync(Guid personId, bool isTutor, DateTime from, DateTime to)
-    {
-        var sessions = isTutor 
-            ? await _sessionRepository.GetByTutorIdAsync(personId)
-            : await _sessionRepository.GetByStudentIdAsync(personId);
-
-        return sessions.Where(s => s.ScheduledStartTime >= from && s.ScheduledStartTime <= to)
-                      .OrderByDescending(s => s.ScheduledStartTime)
-                      .ToList();
-    }
 }

@@ -2,16 +2,16 @@ using OnlineTutoringSystem.Domain.Shared.Common;
 
 namespace OnlineTutoringSystem.Domain.Shared.ValueObjects;
 
-public class EmailAddress : ValueObject
+public class BankAccountNumber : ValueObject
 {
     public string Value { get; private set; }
 
-    public EmailAddress(string email)
+    public BankAccountNumber(string value)
     {
-        if (string.IsNullOrWhiteSpace(email))
-            throw new DomainException("Email address cannot be empty.");
+        if (string.IsNullOrWhiteSpace(value))
+            throw new DomainException("Bank account number cannot be empty.");
 
-        Value = email.Trim().ToLowerInvariant();
+        Value = value.Trim();
     }
 
     protected override IEnumerable<object> GetEqualityComponents()

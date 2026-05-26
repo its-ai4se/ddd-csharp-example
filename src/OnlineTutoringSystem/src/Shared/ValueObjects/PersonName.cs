@@ -11,21 +11,13 @@ public class PersonName : ValueObject
     {
         if (string.IsNullOrWhiteSpace(firstName))
             throw new DomainException("First name cannot be empty.");
-        
+
         if (string.IsNullOrWhiteSpace(lastName))
             throw new DomainException("Last name cannot be empty.");
-
-        if (firstName.Length > 50)
-            throw new DomainException("First name cannot exceed 50 characters.");
-
-        if (lastName.Length > 50)
-            throw new DomainException("Last name cannot exceed 50 characters.");
 
         FirstName = firstName.Trim();
         LastName = lastName.Trim();
     }
-
-    public string FullName => $"{FirstName} {LastName}";
 
     protected override IEnumerable<object> GetEqualityComponents()
     {
@@ -33,5 +25,5 @@ public class PersonName : ValueObject
         yield return LastName;
     }
 
-    public override string ToString() => FullName;
+    public override string ToString() => $"{FirstName} {LastName}";
 }

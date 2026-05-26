@@ -5,57 +5,35 @@ namespace OnlineTutoringSystem.Domain.Person;
 
 public class TutorRole : UserRole
 {
-    public List<Subject> Subjects { get; private set; }
-    public Money HourlyRate { get; private set; }
-    public string Bio { get; private set; }
-    public bool IsVerified { get; private set; }
-    public DateTime? VerifiedAt { get; private set; }
+    public BankAccountNumber BankAccountNumber { get; private set; }
 
-    public TutorRole(Guid id, Guid personId, List<Subject> subjects, Money hourlyRate, string bio = "") : base(id, personId)
+    private readonly List<TutoringOffer> _offers = [];
+    public IReadOnlyList<TutoringOffer> Offers => _offers.AsReadOnly();
+
+    private readonly List<AvailabilitySlot> _availability = [];
+    public IReadOnlyList<AvailabilitySlot> Availability => _availability.AsReadOnly();
+
+    public TutorRole(Guid personId, BankAccountNumber bankAccountNumber) : base(personId)
     {
-        Subjects = subjects ?? throw new ArgumentNullException(nameof(subjects));
-        HourlyRate = hourlyRate ?? throw new ArgumentNullException(nameof(hourlyRate));
-        Bio = bio ?? "";
-        IsVerified = false;
+        BankAccountNumber = bankAccountNumber ?? throw new ArgumentNullException(nameof(bankAccountNumber));
     }
 
-    public TutorRole(Guid personId, List<Subject> subjects, Money hourlyRate, string bio = "") : base(personId)
+    public void AddOffer(TutoringOffer offer)
     {
-        Subjects = subjects ?? throw new ArgumentNullException(nameof(subjects));
-        HourlyRate = hourlyRate ?? throw new ArgumentNullException(nameof(hourlyRate));
-        Bio = bio ?? "";
-        IsVerified = false;
+        ArgumentNullException.ThrowIfNull(offer);
+        if (_offers.Any(o => o.Subject.Equals(offer.Subject) && o.Level == offer.Level))
+            throw new DomainException($"An offer for {offer.Subject} at {offer.Level} level already exists.");
+        _offers.Add(offer);
     }
 
-    public void UpdateSubjects(List<Subject> newSubjects)
-    {
-        Subjects = newSubjects ?? throw new ArgumentNullException(nameof(newSubjects));
-    }
+    public TutoringOffer? GetOffer(Subject subject, ExpertiseLevel level)
+        => _offers.FirstOrDefault(o => o.Subject.Equals(subject) && o.Level == level);
 
-    public void UpdateHourlyRate(Money newRate)
+    public void AddAvailabilitySlot(AvailabilitySlot slot)
     {
-        HourlyRate = newRate ?? throw new ArgumentNullException(nameof(newRate));
-    }
-
-    public void UpdateBio(string newBio)
-    {
-        Bio = newBio ?? "";
-    }
-
-    public void Verify()
-    {
-        IsVerified = true;
-        VerifiedAt = DateTime.UtcNow;
-    }
-
-    public void Unverify()
-    {
-        IsVerified = false;
-        VerifiedAt = null;
-    }
-
-    public bool CanTeachSubject(Subject subject)
-    {
-        return Subjects.Contains(subject);
+        ArgumentNullException.ThrowIfNull(slot);
+        if (_availability.Any(s => s.OverlapsWith(slot)))
+            throw new DomainException("Availability slot overlaps with an existing slot.");
+        _availability.Add(slot);
     }
 }

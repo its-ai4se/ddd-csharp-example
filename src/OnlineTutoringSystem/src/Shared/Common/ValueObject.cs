@@ -2,45 +2,22 @@ namespace OnlineTutoringSystem.Domain.Shared.Common;
 
 public abstract class ValueObject
 {
-    protected static bool EqualOperator(ValueObject left, ValueObject right)
-    {
-        if (ReferenceEquals(left, null) ^ ReferenceEquals(right, null))
-            return false;
-
-        return ReferenceEquals(left, right) || left!.Equals(right);
-    }
-
-    protected static bool NotEqualOperator(ValueObject left, ValueObject right)
-    {
-        return !EqualOperator(left, right);
-    }
-
     protected abstract IEnumerable<object> GetEqualityComponents();
 
     public override bool Equals(object? obj)
     {
-        if (obj == null || obj.GetType() != GetType())
-            return false;
-
-        var other = (ValueObject)obj;
-
-        return GetEqualityComponents().SequenceEqual(other.GetEqualityComponents());
+        if (obj == null || obj.GetType() != GetType()) return false;
+        return GetEqualityComponents().SequenceEqual(((ValueObject)obj).GetEqualityComponents());
     }
 
     public override int GetHashCode()
-    {
-        return GetEqualityComponents()
-            .Select(x => x?.GetHashCode() ?? 0)
-            .Aggregate((x, y) => x ^ y);
-    }
+        => GetEqualityComponents().Select(x => x?.GetHashCode() ?? 0).Aggregate((x, y) => x ^ y);
 
     public static bool operator ==(ValueObject one, ValueObject two)
     {
-        return EqualOperator(one, two);
+        if (ReferenceEquals(one, null) ^ ReferenceEquals(two, null)) return false;
+        return ReferenceEquals(one, two) || one!.Equals(two);
     }
 
-    public static bool operator !=(ValueObject one, ValueObject two)
-    {
-        return NotEqualOperator(one, two);
-    }
+    public static bool operator !=(ValueObject one, ValueObject two) => !(one == two);
 }

@@ -1,83 +1,54 @@
 using OnlineTutoringSystem.Domain.Person;
 using OnlineTutoringSystem.Domain.Person.Repositories;
 using OnlineTutoringSystem.Domain.Shared.Common;
-using OnlineTutoringSystem.Domain.Shared.Services;
 using OnlineTutoringSystem.Domain.Shared.ValueObjects;
 
 namespace OnlineTutoringSystem.Domain.Services;
 
-public class PersonManagementService : DomainServiceBase
+public class PersonManagementService
 {
     private readonly IPersonRepository _personRepository;
 
-    public PersonManagementService(IClock clock, IPersonRepository personRepository) : base(clock)
+    public PersonManagementService(IPersonRepository personRepository)
     {
         _personRepository = personRepository ?? throw new ArgumentNullException(nameof(personRepository));
     }
 
-    public async Task<PersonAggregate> RegisterPersonAsync(PersonName name, EmailAddress email, DateTime dateOfBirth, PhoneNumber? phoneNumber = null)
+    public async Task<PersonAggregate> RegisterStudentAsync(PersonName name, EmailAddress email)
     {
-        // Check if person already exists with this email
-        var existingPerson = await _personRepository.GetByEmailAsync(email.Value);
-        if (existingPerson != null)
-            throw new DomainException("A person with this email address already exists.");
+        var existing = await _personRepository.GetByEmailAsync(email.Value);
+        if (existing != null)
+        {
+            // BR-001: a tutor may also be a student — add student role to existing person
+            if (existing.HasRole<StudentRole>())
+                throw new DomainException("This person is already registered as a student.");
+            existing.AddRole(new StudentRole(existing.Id));
+            await _personRepository.SaveAsync(existing);
+            return existing;
+        }
 
-        var person = new PersonAggregate(name, email, dateOfBirth, phoneNumber);
+        var person = new PersonAggregate(name, email);
+        person.AddRole(new StudentRole(person.Id));
         await _personRepository.SaveAsync(person);
         return person;
     }
 
-    public async Task RegisterTutorAsync(Guid personId, List<Subject> subjects, Money hourlyRate, string bio = "")
+    public async Task<PersonAggregate> RegisterTutorAsync(PersonName name, EmailAddress email, BankAccountNumber bankAccountNumber)
     {
-        var person = await _personRepository.GetByIdAsync(personId);
-        if (person == null)
-            throw new DomainException("Person not found.");
+        var existing = await _personRepository.GetByEmailAsync(email.Value);
+        if (existing != null)
+        {
+            // BR-001: a student may also register as a tutor
+            if (existing.HasRole<TutorRole>())
+                throw new DomainException("This person is already registered as a tutor.");
+            existing.AddRole(new TutorRole(existing.Id, bankAccountNumber));
+            await _personRepository.SaveAsync(existing);
+            return existing;
+        }
 
-        if (person.HasRole<TutorRole>())
-            throw new DomainException("Person is already registered as a tutor.");
-
-        var tutorRole = new TutorRole(personId, subjects, hourlyRate, bio);
-        person.AddRole(tutorRole);
+        var person = new PersonAggregate(name, email);
+        person.AddRole(new TutorRole(person.Id, bankAccountNumber));
         await _personRepository.SaveAsync(person);
-    }
-
-    public async Task RegisterStudentAsync(Guid personId, List<Subject> interestedSubjects, string learningGoals = "", string preferredLearningStyle = "")
-    {
-        var person = await _personRepository.GetByIdAsync(personId);
-        if (person == null)
-            throw new DomainException("Person not found.");
-
-        if (person.HasRole<StudentRole>())
-            throw new DomainException("Person is already registered as a student.");
-
-        var studentRole = new StudentRole(personId, interestedSubjects, learningGoals, preferredLearningStyle);
-        person.AddRole(studentRole);
-        await _personRepository.SaveAsync(person);
-    }
-
-    public async Task VerifyTutorAsync(Guid personId)
-    {
-        var person = await _personRepository.GetByIdAsync(personId);
-        if (person == null)
-            throw new DomainException("Person not found.");
-
-        var tutorRole = person.GetRole<TutorRole>();
-        if (tutorRole == null)
-            throw new DomainException("Person is not registered as a tutor.");
-
-        tutorRole.Verify();
-        await _personRepository.SaveAsync(person);
-    }
-
-    public async Task<List<PersonAggregate>> GetVerifiedTutorsAsync()
-    {
-        var tutors = await _personRepository.GetByRoleAsync<TutorRole>();
-        return tutors.Where(t => t.GetRole<TutorRole>()?.IsVerified == true).ToList();
-    }
-
-    public async Task<List<PersonAggregate>> GetTutorsBySubjectAsync(Subject subject)
-    {
-        var tutors = await _personRepository.GetByRoleAsync<TutorRole>();
-        return tutors.Where(t => t.GetRole<TutorRole>()?.CanTeachSubject(subject) == true).ToList();
+        return person;
     }
 }
