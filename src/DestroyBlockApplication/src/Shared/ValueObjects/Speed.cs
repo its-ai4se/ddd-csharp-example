@@ -16,11 +16,6 @@ public class Speed : ValueObject
         Value = value;
     }
 
-    public static Speed operator *(Speed speed, double factor)
-    {
-        return new Speed(speed.Value * factor);
-    }
-
     protected override IEnumerable<object> GetEqualityComponents()
     {
         yield return Value;

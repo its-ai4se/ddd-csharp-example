@@ -21,26 +21,6 @@ public class LevelNumber : ValueObject
         return new LevelNumber(level.Value + 1);
     }
 
-    public static bool operator <(LevelNumber left, LevelNumber right)
-    {
-        return left.Value < right.Value;
-    }
-
-    public static bool operator >(LevelNumber left, LevelNumber right)
-    {
-        return left.Value > right.Value;
-    }
-
-    public static bool operator <=(LevelNumber left, LevelNumber right)
-    {
-        return left.Value <= right.Value;
-    }
-
-    public static bool operator >=(LevelNumber left, LevelNumber right)
-    {
-        return left.Value >= right.Value;
-    }
-
     protected override IEnumerable<object> GetEqualityComponents()
     {
         yield return Value;

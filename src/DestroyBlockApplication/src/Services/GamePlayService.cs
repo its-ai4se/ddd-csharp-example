@@ -5,70 +5,41 @@ using DestroyBlockApplication.Domain.GameSession.Repositories;
 using DestroyBlockApplication.Domain.HallOfFame;
 using DestroyBlockApplication.Domain.HallOfFame.Repositories;
 using DestroyBlockApplication.Domain.Shared.Common;
-using DestroyBlockApplication.Domain.Shared.Services;
 using DestroyBlockApplication.Domain.Shared.ValueObjects;
-using DestroyBlockApplication.Domain.User;
-using DestroyBlockApplication.Domain.User.Repositories;
 
 namespace DestroyBlockApplication.Domain.Services;
 
-public class GamePlayService : DomainServiceBase
+public class GamePlayService
 {
     private readonly IGameRepository _gameRepository;
     private readonly IGameSessionRepository _gameSessionRepository;
     private readonly IHallOfFameRepository _hallOfFameRepository;
-    private readonly IUserRepository _userRepository;
-    private readonly IClock _clock;
 
     public GamePlayService(
         IGameRepository gameRepository,
         IGameSessionRepository gameSessionRepository,
-        IHallOfFameRepository hallOfFameRepository,
-        IUserRepository userRepository,
-        IClock clock)
+        IHallOfFameRepository hallOfFameRepository)
     {
         _gameRepository = gameRepository ?? throw new ArgumentNullException(nameof(gameRepository));
         _gameSessionRepository = gameSessionRepository ?? throw new ArgumentNullException(nameof(gameSessionRepository));
         _hallOfFameRepository = hallOfFameRepository ?? throw new ArgumentNullException(nameof(hallOfFameRepository));
-        _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
-        _clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
 
     public async Task<GameSessionAggregate> StartGameAsync(Guid playerId, Guid gameId)
     {
-        // Verify player exists
-        var player = await _userRepository.GetByIdAsync(playerId);
-        if (player == null)
-        {
-            throw new DomainException($"Player with ID {playerId} not found.");
-        }
-
-        // Verify game exists and is published
-        var game = await _gameRepository.GetByIdAsync(gameId);
-        if (game == null)
-        {
-            throw new DomainException($"Game with ID {gameId} not found.");
-        }
-
+        var game = await _gameRepository.GetByIdAsync(gameId) ?? throw new DomainException($"Game with ID {gameId} not found.");
         if (!game.IsPublished)
-        {
             throw new DomainException("Cannot start unpublished game.");
-        }
 
-        // Check if player already has an active session
+        // BR-036: only one active session at a time
         var existingSession = await _gameSessionRepository.GetActiveSessionForPlayerAsync(playerId);
         if (existingSession != null)
-        {
             throw new DomainException("Player already has an active game session.");
-        }
 
-        // Check if player is admin for this game (not allowed)
-        if (player.HasRoleForGame(gameId, RoleType.Admin))
-        {
+        // BR-005/BR-007: the game's admin cannot play their own game
+        if (game.AdminId == playerId)
             throw new DomainException("Game admin cannot play their own game.");
-        }
 
-        // Create new game session
         var session = new GameSessionAggregate(playerId, gameId);
         await _gameSessionRepository.AddAsync(session);
 
@@ -77,16 +48,9 @@ public class GamePlayService : DomainServiceBase
 
     public async Task PauseGameAsync(Guid sessionId, Guid playerId)
     {
-        var session = await _gameSessionRepository.GetByIdAsync(sessionId);
-        if (session == null)
-        {
-            throw new DomainException($"Game session with ID {sessionId} not found.");
-        }
-
+        var session = await _gameSessionRepository.GetByIdAsync(sessionId) ?? throw new DomainException($"Game session with ID {sessionId} not found.");
         if (session.PlayerId != playerId)
-        {
             throw new DomainException("Only the session owner can pause the game.");
-        }
 
         session.Pause();
         await _gameSessionRepository.UpdateAsync(session);
@@ -94,77 +58,60 @@ public class GamePlayService : DomainServiceBase
 
     public async Task ResumeGameAsync(Guid sessionId, Guid playerId)
     {
-        var session = await _gameSessionRepository.GetByIdAsync(sessionId);
-        if (session == null)
-        {
-            throw new DomainException($"Game session with ID {sessionId} not found.");
-        }
-
+        var session = await _gameSessionRepository.GetByIdAsync(sessionId) ?? throw new DomainException($"Game session with ID {sessionId} not found.");
         if (session.PlayerId != playerId)
-        {
             throw new DomainException("Only the session owner can resume the game.");
-        }
 
         session.Resume();
         await _gameSessionRepository.UpdateAsync(session);
     }
 
+    // BR-030: game ends, score goes to hall of fame
     public async Task CompleteGameAsync(Guid sessionId, Guid playerId)
     {
-        var session = await _gameSessionRepository.GetByIdAsync(sessionId);
-        if (session == null)
-        {
-            throw new DomainException($"Game session with ID {sessionId} not found.");
-        }
-
+        var session = await _gameSessionRepository.GetByIdAsync(sessionId) ?? throw new DomainException($"Game session with ID {sessionId} not found.");
         if (session.PlayerId != playerId)
-        {
             throw new DomainException("Only the session owner can complete the game.");
-        }
 
         session.Complete();
         await _gameSessionRepository.UpdateAsync(session);
 
-        // Add to hall of fame
         var hallOfFame = await _hallOfFameRepository.GetByGameIdAsync(session.GameId);
         if (hallOfFame != null)
         {
-            var entry = new HighScoreEntry(session.GameId, session.PlayerId, session.Id, 
-                session.TotalScore, _clock.Now);
+            var entry = new HighScoreEntry(session.GameId, session.PlayerId, session.Id,
+                session.TotalScore, session.CompletedAt!.Value);
             hallOfFame.AddEntry(entry);
             await _hallOfFameRepository.UpdateAsync(hallOfFame);
         }
     }
 
-    public async Task AdvanceToNextLevelAsync(Guid sessionId, Guid playerId)
+    // BR-027: called when the last block of the current level is destroyed
+    public async Task CompleteLevelAsync(Guid sessionId, Guid playerId)
     {
-        var session = await _gameSessionRepository.GetByIdAsync(sessionId);
-        if (session == null)
-        {
-            throw new DomainException($"Game session with ID {sessionId} not found.");
-        }
-
+        var session = await _gameSessionRepository.GetByIdAsync(sessionId) ?? throw new DomainException($"Game session with ID {sessionId} not found.");
         if (session.PlayerId != playerId)
-        {
-            throw new DomainException("Only the session owner can advance levels.");
-        }
+            throw new DomainException("Only the session owner can complete a level.");
 
-        var game = await _gameRepository.GetByIdAsync(session.GameId);
-        if (game == null)
-        {
-            throw new DomainException($"Game with ID {session.GameId} not found.");
-        }
+        var game = await _gameRepository.GetByIdAsync(session.GameId) ?? throw new DomainException($"Game with ID {session.GameId} not found.");
 
-        // Check if there's a next level
+        // No next level means the game is over (BR-030)
         var nextLevelNumber = new LevelNumber(session.CurrentLevel.Value + 1);
-        var nextLevel = game.GetLevel(nextLevelNumber);
-        
-        if (nextLevel == null)
+        if (game.GetLevel(nextLevelNumber) == null)
         {
-            // No more levels, complete the game
             await CompleteGameAsync(sessionId, playerId);
             return;
         }
+
+        session.CompleteLevel();
+        await _gameSessionRepository.UpdateAsync(session);
+    }
+
+    public async Task ConfirmNextLevelAsync(Guid sessionId, Guid playerId)
+    {
+        var session = await _gameSessionRepository.GetByIdAsync(sessionId) ?? throw new DomainException($"Game session with ID {sessionId} not found.");
+        if (session.PlayerId != playerId)
+            throw new DomainException("Only the session owner can confirm the next level.");
 
         session.AdvanceToNextLevel();
         await _gameSessionRepository.UpdateAsync(session);

@@ -3,14 +3,6 @@ using DestroyBlockApplication.Domain.Shared.ValueObjects;
 
 namespace DestroyBlockApplication.Domain.GameSession;
 
-public enum GameSessionStatus
-{
-    Active,
-    Paused,
-    Completed,
-    Failed
-}
-
 public class GameSessionAggregate : AggregateRoot
 {
     public Guid PlayerId { get; }
@@ -30,10 +22,11 @@ public class GameSessionAggregate : AggregateRoot
         PlayerId = playerId;
         GameId = gameId;
         Status = GameSessionStatus.Active;
-        TotalScore = new Score(0);
+        TotalScore = Score.Zero;
         Lives = new Lives(3);
         CurrentLevel = new LevelNumber(1);
         StartedAt = DateTime.UtcNow;
+        _levelProgress.Add(new LevelProgress(CurrentLevel, StartedAt));
     }
 
     public GameSessionAggregate(Guid playerId, Guid gameId) : base()
@@ -41,30 +34,28 @@ public class GameSessionAggregate : AggregateRoot
         PlayerId = playerId;
         GameId = gameId;
         Status = GameSessionStatus.Active;
-        TotalScore = new Score(0);
+        TotalScore = Score.Zero;
         Lives = new Lives(3);
         CurrentLevel = new LevelNumber(1);
         StartedAt = DateTime.UtcNow;
+        _levelProgress.Add(new LevelProgress(CurrentLevel, StartedAt));
     }
 
     public IReadOnlyList<LevelProgress> LevelProgress => _levelProgress.AsReadOnly();
 
     public void AddScore(Score score)
     {
-        if (Status != GameSessionStatus.Active)
-        {
+        if (!Status.Equals(GameSessionStatus.Active))
             throw new InvalidOperationException("Cannot add score to inactive game session.");
-        }
 
         TotalScore = TotalScore + score;
+        GetCurrentLevelProgress()?.AddScore(score);
     }
 
     public void LoseLife()
     {
-        if (Status != GameSessionStatus.Active)
-        {
+        if (!Status.Equals(GameSessionStatus.Active))
             throw new InvalidOperationException("Cannot lose life in inactive game session.");
-        }
 
         Lives = --Lives;
 
@@ -75,29 +66,33 @@ public class GameSessionAggregate : AggregateRoot
         }
     }
 
+    // BR-027, BR-032: called when the last block of a level is destroyed
+    // Saves the game and waits for player confirmation (BR-031)
+    public void CompleteLevel()
+    {
+        if (!Status.Equals(GameSessionStatus.Active))
+            throw new InvalidOperationException("Cannot complete level in inactive game session.");
+
+        GetCurrentLevelProgress()?.MarkCompleted();
+        Status = GameSessionStatus.LevelCompleted;
+        LastSavedAt = DateTime.UtcNow;
+    }
+
+    // BR-031: only callable after player confirms (i.e., status is LevelCompleted)
     public void AdvanceToNextLevel()
     {
-        if (Status != GameSessionStatus.Active)
-        {
-            throw new InvalidOperationException("Cannot advance level in inactive game session.");
-        }
-
-        var currentLevelProgress = GetCurrentLevelProgress();
-        if (currentLevelProgress != null)
-        {
-            currentLevelProgress.MarkCompleted();
-        }
+        if (!Status.Equals(GameSessionStatus.LevelCompleted))
+            throw new InvalidOperationException("Cannot advance to next level before current level is completed and player confirms.");
 
         CurrentLevel = ++CurrentLevel;
         _levelProgress.Add(new LevelProgress(CurrentLevel, DateTime.UtcNow));
+        Status = GameSessionStatus.Active;
     }
 
     public void Pause()
     {
-        if (Status != GameSessionStatus.Active)
-        {
+        if (!Status.Equals(GameSessionStatus.Active) && !Status.Equals(GameSessionStatus.LevelCompleted))
             throw new InvalidOperationException("Cannot pause inactive game session.");
-        }
 
         Status = GameSessionStatus.Paused;
         LastSavedAt = DateTime.UtcNow;
@@ -105,45 +100,29 @@ public class GameSessionAggregate : AggregateRoot
 
     public void Resume()
     {
-        if (Status != GameSessionStatus.Paused)
-        {
+        if (!Status.Equals(GameSessionStatus.Paused))
             throw new InvalidOperationException("Cannot resume non-paused game session.");
-        }
 
         Status = GameSessionStatus.Active;
     }
 
     public void Complete()
     {
-        if (Status != GameSessionStatus.Active)
-        {
+        if (!Status.Equals(GameSessionStatus.Active))
             throw new InvalidOperationException("Cannot complete inactive game session.");
-        }
 
         Status = GameSessionStatus.Completed;
         CompletedAt = DateTime.UtcNow;
         LastSavedAt = DateTime.UtcNow;
     }
 
-    public void Save()
-    {
-        LastSavedAt = DateTime.UtcNow;
-    }
+    public bool IsActive => Status.Equals(GameSessionStatus.Active);
+    public bool IsPaused => Status.Equals(GameSessionStatus.Paused);
+    public bool IsCompleted => Status.Equals(GameSessionStatus.Completed);
+    public bool IsFailed => Status.Equals(GameSessionStatus.Failed);
 
-    public LevelProgress? GetCurrentLevelProgress()
-    {
-        return _levelProgress.FirstOrDefault(lp => lp.LevelNumber.Equals(CurrentLevel));
-    }
-
-    public LevelProgress? GetLevelProgress(LevelNumber levelNumber)
-    {
-        return _levelProgress.FirstOrDefault(lp => lp.LevelNumber.Equals(levelNumber));
-    }
-
-    public bool IsActive => Status == GameSessionStatus.Active;
-    public bool IsPaused => Status == GameSessionStatus.Paused;
-    public bool IsCompleted => Status == GameSessionStatus.Completed;
-    public bool IsFailed => Status == GameSessionStatus.Failed;
+    private LevelProgress? GetCurrentLevelProgress()
+        => _levelProgress.FirstOrDefault(lp => lp.LevelNumber.Equals(CurrentLevel));
 
     public override string ToString() => $"GameSession: Player {PlayerId}, Game {GameId}, Level {CurrentLevel}, Score {TotalScore}";
 }

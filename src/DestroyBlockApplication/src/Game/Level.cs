@@ -25,10 +25,7 @@ public class Level : Entity
 
     public void AddBlockPlacement(BlockPlacement placement)
     {
-        if (placement == null)
-        {
-            throw new ArgumentNullException(nameof(placement));
-        }
+        ArgumentNullException.ThrowIfNull(placement);
 
         if (_blockPlacements.Any(bp => bp.Position.Equals(placement.Position)))
         {
@@ -36,25 +33,6 @@ public class Level : Entity
         }
 
         _blockPlacements.Add(placement);
-    }
-
-    public void RemoveBlockPlacement(GridPosition position)
-    {
-        if (position == null)
-        {
-            throw new ArgumentNullException(nameof(position));
-        }
-
-        var placementToRemove = _blockPlacements.FirstOrDefault(bp => bp.Position.Equals(position));
-        if (placementToRemove != null)
-        {
-            _blockPlacements.Remove(placementToRemove);
-        }
-    }
-
-    public BlockPlacement? GetBlockPlacement(GridPosition position)
-    {
-        return _blockPlacements.FirstOrDefault(bp => bp.Position.Equals(position));
     }
 
     public override string ToString() => $"Level {LevelNumber} (Random: {IsRandom})";

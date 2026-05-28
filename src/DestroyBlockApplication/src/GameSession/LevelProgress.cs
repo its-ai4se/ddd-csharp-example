@@ -14,14 +14,14 @@ public class LevelProgress : Entity
     {
         LevelNumber = levelNumber ?? throw new ArgumentNullException(nameof(levelNumber));
         StartedAt = startedAt;
-        Score = new Score(0);
+        Score = Score.Zero;
     }
 
     public LevelProgress(LevelNumber levelNumber, DateTime startedAt) : base()
     {
         LevelNumber = levelNumber ?? throw new ArgumentNullException(nameof(levelNumber));
         StartedAt = startedAt;
-        Score = new Score(0);
+        Score = Score.Zero;
     }
 
     public void AddScore(Score score)

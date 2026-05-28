@@ -17,9 +17,7 @@ public class PaddleLength : ValueObject
     }
 
     public static PaddleLength operator -(PaddleLength length, double reduction)
-    {
-        return new PaddleLength(Math.Max(0.1, length.Value - reduction));
-    }
+        => new PaddleLength(length.Value - reduction);
 
     protected override IEnumerable<object> GetEqualityComponents()
     {

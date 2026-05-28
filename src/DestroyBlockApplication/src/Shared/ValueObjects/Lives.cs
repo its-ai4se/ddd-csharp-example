@@ -8,18 +8,13 @@ public class Lives : ValueObject
 
     public Lives(int value)
     {
-        if (value < 0 || value > 3)
-        {
-            throw new ArgumentException("Lives must be between 0 and 3.", nameof(value));
-        }
+        if (value < 0)
+            throw new ArgumentException("Lives cannot be negative.", nameof(value));
 
         Value = value;
     }
 
-    public static Lives operator --(Lives lives)
-    {
-        return new Lives(Math.Max(0, lives.Value - 1));
-    }
+    public static Lives operator --(Lives lives) => new Lives(lives.Value - 1);
 
     public bool IsAlive => Value > 0;
 
