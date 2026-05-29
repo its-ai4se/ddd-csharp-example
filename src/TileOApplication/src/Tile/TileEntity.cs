@@ -6,75 +6,61 @@ namespace TileOApplication.Domain.Tile;
 public class TileEntity : Entity
 {
     public Position Position { get; private set; }
-    public TileState State { get; private set; }
     private readonly Dictionary<Direction, Connection> _connections;
 
-    public TileEntity(Guid id, Position position, TileState state) : base(id)
+    internal TileEntity(Guid id, Position position, TileState state) : base(id)
     {
         Position = position ?? throw new ArgumentNullException(nameof(position));
         State = state ?? throw new ArgumentNullException(nameof(state));
-        _connections = new Dictionary<Direction, Connection>
-        {
-            { Direction.North, new Connection(Direction.North) },
-            { Direction.South, new Connection(Direction.South) },
-            { Direction.East, new Connection(Direction.East) },
-            { Direction.West, new Connection(Direction.West) }
-        };
+        _connections = InitConnections();
     }
 
     public TileEntity(Position position, TileState state) : base()
     {
         Position = position ?? throw new ArgumentNullException(nameof(position));
         State = state ?? throw new ArgumentNullException(nameof(state));
-        _connections = new Dictionary<Direction, Connection>
-        {
-            { Direction.North, new Connection(Direction.North) },
-            { Direction.South, new Connection(Direction.South) },
-            { Direction.East, new Connection(Direction.East) },
-            { Direction.West, new Connection(Direction.West) }
-        };
+        _connections = InitConnections();
     }
 
-    public IReadOnlyDictionary<Direction, Connection> Connections => _connections.AsReadOnly();
+    private static Dictionary<Direction, Connection> InitConnections() => new()
+    {
+        { Direction.North, new Connection(Direction.North) },
+        { Direction.South, new Connection(Direction.South) },
+        { Direction.East, new Connection(Direction.East) },
+        { Direction.West, new Connection(Direction.West) }
+    };
 
-    public void ConnectTo(Direction direction)
+    internal IReadOnlyDictionary<Direction, Connection> Connections => _connections.AsReadOnly();
+
+    internal void ConnectTo(Direction direction)
     {
         if (_connections.ContainsKey(direction))
-        {
             _connections[direction] = _connections[direction].Connect();
-        }
     }
 
-    public void DisconnectFrom(Direction direction)
+    internal void DisconnectFrom(Direction direction)
     {
         if (_connections.ContainsKey(direction))
-        {
             _connections[direction] = _connections[direction].Disconnect();
-        }
     }
 
-    public bool IsConnectedTo(Direction direction)
-    {
-        return _connections.ContainsKey(direction) && _connections[direction].IsConnected;
-    }
-
-    public void MarkAsVisited()
+    internal void MarkAsVisited()
     {
         State = State.MarkAsVisited();
     }
 
-    public void ConvertToRegular(int actionTurnsRemaining)
+    internal void ConvertToRegular(int actionTurnsRemaining)
     {
         State = State.ConvertToRegular(actionTurnsRemaining);
     }
 
-    public void DecrementActionTurns()
+    internal void DecrementActionTurns()
     {
         State = State.DecrementActionTurns();
     }
 
-    public bool IsHiddenTile => State.Type == TileType.Hidden;
-    public bool IsActionTile => State.Type == TileType.Action;
-    public bool IsStartingTile => State.Type == TileType.Starting;
+    internal TileState State { get; private set; }
+    internal bool IsHiddenTile => State.Type == TileType.Hidden;
+    internal bool IsActionTile => State.Type == TileType.Action;
     public bool IsVisited => State.IsVisited;
 }

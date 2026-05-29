@@ -1,8 +1,4 @@
 using TileOApplication.Domain.Game;
-using TileOApplication.Domain.Player;
-using TileOApplication.Domain.Board;
-using TileOApplication.Domain.Tile;
-using TileOApplication.Domain.ActionCard;
 using TileOApplication.Domain.Services;
 using TileOApplication.Domain.Shared.ValueObjects;
 
@@ -16,122 +12,52 @@ class Program
 
         try
         {
-            // Create a new game
-            var game = new GameAggregate("My First Tile-O Game");
-            Console.WriteLine($"Created game: {game}");
-
-            // Setup the game using the design service
+            var game = new GameAggregate();
             var designService = new GameDesignService();
-            
-            Console.WriteLine("\n--- Setting up players ---");
-            designService.SetupDefaultPlayers(game);
-            Console.WriteLine($"Added {game.Players.Count} players:");
-            foreach (var player in game.Players)
-            {
-                Console.WriteLine($"  - {player}");
-            }
-
-            Console.WriteLine("\n--- Creating action card deck ---");
-            designService.CreateDefaultActionCardDeck(game);
-            Console.WriteLine($"Created {game.ActionCards.Count} action cards");
-
-            Console.WriteLine("\n--- Creating game board ---");
-            designService.CreateSampleBoard(game);
-            Console.WriteLine($"Created board with {game.Board.Tiles.Count} tiles");
-            Console.WriteLine($"Hidden tile at: {game.Board.HiddenTilePosition}");
-            Console.WriteLine($"Starting positions: {game.Board.StartingPositions.Count}");
-
-            // Start the game
-            Console.WriteLine("\n--- Starting the game ---");
-            game.StartGame();
-            Console.WriteLine($"Game status: {game.Status}");
-            Console.WriteLine($"Current player: {game.Players.First(p => p.Id == game.CurrentPlayerId)}");
-            Console.WriteLine($"Current turn: {game.CurrentTurn}");
-
-            // Begin play
-            game.BeginPlay();
-            Console.WriteLine($"Game status: {game.Status}");
-
-            // Demonstrate gameplay
-            Console.WriteLine("\n--- Gameplay Demo ---");
             var playService = new GamePlayService();
+
+            designService.SetupDefaultPlayers(game);
+            designService.CreateDefaultActionCardDeck(game);
+            designService.CreateSampleBoard(game);
+
+            Console.WriteLine($"Board: {game.Board.Tiles.Count} tiles, hidden at {game.Board.HiddenTilePosition}");
+            Console.WriteLine($"Spare pieces: {game.Board.SpareConnectionPieces}");
+
+            // BR-001/BR-002: in production use GameSessionService; direct call here for demo
+            game.StartGame();
+            Console.WriteLine($"Game started. Status: {game.Status}");
+
             var currentPlayer = game.Players.First(p => p.Id == game.CurrentPlayerId);
-            
-            Console.WriteLine($"Current player: {currentPlayer}");
-            Console.WriteLine($"Player position: {currentPlayer.CurrentPosition}");
+            Console.WriteLine($"Current player: {currentPlayer} at {currentPlayer.CurrentPosition}");
 
-            // Roll die and show valid moves
-            var diceRoll = playService.RollDie();
-            Console.WriteLine($"Dice roll: {diceRoll}");
-            
-            var validMoves = playService.GetValidMoves(game, currentPlayer.Id, diceRoll);
-            Console.WriteLine($"Valid moves from current position: {validMoves.Count}");
-            foreach (var move in validMoves.Take(5)) // Show first 5 moves
-            {
-                Console.WriteLine($"  - {move}");
-            }
+            // BR-015: Must roll dice before moving
+            var roll = playService.RollDice(game);
+            Console.WriteLine($"Dice roll: {roll}");
 
-            // Make a move
-            if (validMoves.Count > 1)
+            var validMoves = playService.GetValidMoves(game, currentPlayer.Id);
+            Console.WriteLine($"Valid moves: {validMoves.Count}");
+
+            if (validMoves.Count > 0)
             {
-                var targetPosition = validMoves[1]; // Move to second valid position
-                Console.WriteLine($"\nMoving player to: {targetPosition}");
-                game.MovePlayer(currentPlayer.Id, targetPosition);
-                
-                Console.WriteLine($"Player new position: {currentPlayer.CurrentPosition}");
+                var target = validMoves[0];
+                Console.WriteLine($"Moving to: {target}");
+                game.MovePlayer(currentPlayer.Id, target);
                 Console.WriteLine($"Game status: {game.Status}");
-                
                 if (game.Status == GameStatus.Completed)
-                {
-                    var winner = game.Players.First(p => p.Id == game.WinnerId);
-                    Console.WriteLine($"🎉 Game completed! Winner: {winner}");
-                }
+                    Console.WriteLine($"Winner: {game.Players.First(p => p.Id == game.WinnerId)}");
             }
 
-            // Demonstrate action card usage
-            Console.WriteLine("\n--- Action Card Demo ---");
-            var unusedActionCard = game.ActionCards.FirstOrDefault(ac => !ac.IsUsed);
-            if (unusedActionCard != null)
+            // BR-021: Board view hides action/hidden tile identity
+            Console.WriteLine("\n--- Board View (player perspective) ---");
+            foreach (var pos in game.Board.Tiles.Keys.Take(4))
             {
-                Console.WriteLine($"Available action card: {unusedActionCard.Description}");
-                
-                if (unusedActionCard.Description.Type == ActionCardType.ConnectTiles)
-                {
-                    var parameters = new Dictionary<string, object>
-                    {
-                        ["fromPosition"] = new Position(0, 0),
-                        ["toPosition"] = new Position(1, 1)
-                    };
-                    
-                    try
-                    {
-                        playService.ExecuteActionCard(game, currentPlayer.Id, unusedActionCard.Id, parameters);
-                        Console.WriteLine("Action card executed successfully");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Action card execution failed: {ex.Message}");
-                    }
-                }
+                var view = game.Board.GetTileView(pos);
+                Console.WriteLine($"  {pos} => {view?.DisplayType}");
             }
-
-            // Show board state
-            Console.WriteLine("\n--- Board State ---");
-            Console.WriteLine($"Total tiles: {game.Board.Tiles.Count}");
-            Console.WriteLine($"Spare connection pieces: {game.Board.SpareConnectionPieces}");
-            
-            var visitedTiles = game.Board.Tiles.Values.Count(t => t.IsVisited);
-            Console.WriteLine($"Visited tiles: {visitedTiles}");
-
-            Console.WriteLine("\n=== Demo completed successfully! ===");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error during demo: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            Console.WriteLine($"Error: {ex.Message}");
         }
-
-        Console.WriteLine("\nPress any key to exit...");
-        Console.ReadKey();
     }
 }

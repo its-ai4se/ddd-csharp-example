@@ -9,197 +9,120 @@ namespace TileOApplication.Domain.Game;
 public enum GameStatus
 {
     Designing,
-    ReadyToPlay,
     InProgress,
     Completed
 }
 
 public class GameAggregate : AggregateRoot
 {
-    public string Name { get; private set; }
     public GameStatus Status { get; private set; }
-    public BoardAggregate Board { get; private set; }
     public Guid? CurrentPlayerId { get; private set; }
     public Guid? WinnerId { get; private set; }
-    public int CurrentTurn { get; private set; }
+    internal int CurrentTurn { get; private set; }
+    internal BoardAggregate Board { get; private set; }
 
     private readonly List<PlayerAggregate> _players;
     private readonly List<ActionCardEntity> _actionCards;
-    private readonly List<ActionCardEntity> _usedActionCards;
+    private Guid? _skippedPlayerId;
 
-    public GameAggregate(Guid id, string name) : base(id)
+    private bool _diceRolledThisTurn;
+    private int _currentDiceRoll;
+
+    public GameAggregate() : base()
     {
-        Name = name ?? throw new ArgumentNullException(nameof(name));
         Status = GameStatus.Designing;
         Board = new BoardAggregate();
-        CurrentTurn = 0;
-        _players = new List<PlayerAggregate>();
-        _actionCards = new List<ActionCardEntity>();
-        _usedActionCards = new List<ActionCardEntity>();
-    }
-
-    public GameAggregate(string name) : base()
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            throw new ArgumentException("Game name cannot be empty or whitespace.", nameof(name));
-        }
-        Name = name.Trim();
-        Status = GameStatus.Designing;
-        Board = new BoardAggregate();
-        CurrentTurn = 0;
-        _players = new List<PlayerAggregate>();
-        _actionCards = new List<ActionCardEntity>();
-        _usedActionCards = new List<ActionCardEntity>();
+        _players = [];
+        _actionCards = [];
     }
 
     public IReadOnlyList<PlayerAggregate> Players => _players.AsReadOnly();
-    public IReadOnlyList<ActionCardEntity> ActionCards => _actionCards.AsReadOnly();
-    public IReadOnlyList<ActionCardEntity> UsedActionCards => _usedActionCards.AsReadOnly();
+    internal IReadOnlyList<ActionCardEntity> ActionCards => _actionCards.AsReadOnly();
+    public int CurrentDiceRoll => _currentDiceRoll;
+    public bool DiceRolledThisTurn => _diceRolledThisTurn;
 
     public void AddPlayer(PlayerAggregate player)
     {
         if (Status != GameStatus.Designing)
-        {
             throw new InvalidOperationException("Cannot add players when game is not in designing phase.");
-        }
-
         if (_players.Count >= 4)
-        {
             throw new InvalidOperationException("Maximum of 4 players allowed.");
-        }
-
         if (_players.Any(p => p.Color.Equals(player.Color)))
-        {
             throw new ArgumentException("A player with this color already exists.");
-        }
-
         _players.Add(player);
-    }
-
-    public void RemovePlayer(Guid playerId)
-    {
-        if (Status != GameStatus.Designing)
-        {
-            throw new InvalidOperationException("Cannot remove players when game is not in designing phase.");
-        }
-
-        var player = _players.FirstOrDefault(p => p.Id == playerId);
-        if (player != null)
-        {
-            _players.Remove(player);
-        }
     }
 
     public void AddActionCard(ActionCardDescription description)
     {
         if (Status != GameStatus.Designing)
-        {
             throw new InvalidOperationException("Cannot add action cards when game is not in designing phase.");
-        }
-
         if (_actionCards.Count >= 32)
-        {
             throw new InvalidOperationException("Maximum of 32 action cards allowed.");
-        }
-
         _actionCards.Add(new ActionCardEntity(description));
-    }
-
-    public void RemoveActionCard(Guid actionCardId)
-    {
-        if (Status != GameStatus.Designing)
-        {
-            throw new InvalidOperationException("Cannot remove action cards when game is not in designing phase.");
-        }
-
-        var actionCard = _actionCards.FirstOrDefault(ac => ac.Id == actionCardId);
-        if (actionCard != null)
-        {
-            _actionCards.Remove(actionCard);
-        }
     }
 
     public void StartGame()
     {
         if (Status != GameStatus.Designing)
-        {
             throw new InvalidOperationException("Game can only be started from designing phase.");
-        }
-
         if (_players.Count < 2)
-        {
             throw new InvalidOperationException("At least 2 players are required to start the game.");
-        }
-
-        if (_actionCards.Count == 0)
-        {
-            throw new InvalidOperationException("At least one action card is required to start the game.");
-        }
-
+        if (_actionCards.Count != 32)
+            throw new InvalidOperationException("The action card deck must contain exactly 32 cards.");
         if (Board.HiddenTilePosition == null)
-        {
             throw new InvalidOperationException("Hidden tile must be set before starting the game.");
-        }
-
+        if (!Board.Tiles.Values.Any(t => t.IsActionTile))
+            throw new InvalidOperationException("At least one action tile must be placed on the board.");
         if (Board.StartingPositions.Count != _players.Count)
-        {
             throw new InvalidOperationException("Starting positions must be set for all players.");
-        }
 
-        Status = GameStatus.ReadyToPlay;
+        Status = GameStatus.InProgress;
         CurrentPlayerId = _players.OrderBy(p => p.TurnOrder).First().Id;
         CurrentTurn = 1;
 
-        // Place players at their starting positions
         foreach (var player in _players)
         {
             var startingPosition = Board.StartingPositions.FirstOrDefault(sp => sp.Value == player.Id).Key;
             if (startingPosition != null)
             {
                 player.PlaceAtStartingPosition(startingPosition);
+                Board.GetTileAt(startingPosition)?.MarkAsVisited();
             }
         }
-    }
-
-    public void BeginPlay()
-    {
-        if (Status != GameStatus.ReadyToPlay)
-        {
-            throw new InvalidOperationException("Game must be ready to play before beginning.");
-        }
-
-        Status = GameStatus.InProgress;
     }
 
     public void MovePlayer(Guid playerId, Position newPosition)
     {
         if (Status != GameStatus.InProgress)
-        {
             throw new InvalidOperationException("Game must be in progress to move players.");
-        }
-
         if (CurrentPlayerId != playerId)
-        {
             throw new InvalidOperationException("It's not this player's turn.");
-        }
+        if (!_diceRolledThisTurn)
+            throw new InvalidOperationException("Player must roll the dice before moving.");
 
-        var player = _players.FirstOrDefault(p => p.Id == playerId);
-        if (player == null)
-        {
-            throw new ArgumentException("Player not found.");
-        }
+        MovePlayerInternal(playerId, newPosition);
+    }
 
-        var tile = Board.GetTileAt(newPosition);
-        if (tile == null)
-        {
-            throw new ArgumentException("No tile exists at the specified position.");
-        }
+    internal void MovePlayerDirect(Guid playerId, Position newPosition)
+    {
+        if (Status != GameStatus.InProgress)
+            throw new InvalidOperationException("Game must be in progress to move players.");
+        if (CurrentPlayerId != playerId)
+            throw new InvalidOperationException("It's not this player's turn.");
+
+        MovePlayerInternal(playerId, newPosition);
+    }
+
+    private void MovePlayerInternal(Guid playerId, Position newPosition)
+    {
+        var player = _players.FirstOrDefault(p => p.Id == playerId)
+            ?? throw new ArgumentException("Player not found.");
+        var tile = Board.GetTileAt(newPosition)
+            ?? throw new ArgumentException("No tile exists at the specified position.");
 
         player.MoveTo(newPosition);
         tile.MarkAsVisited();
 
-        // Check if player landed on hidden tile
         if (tile.IsHiddenTile)
         {
             WinnerId = playerId;
@@ -207,94 +130,82 @@ public class GameAggregate : AggregateRoot
             return;
         }
 
-        // Check if player landed on action tile
         if (tile.IsActionTile)
         {
-            var actionCard = _actionCards.FirstOrDefault(ac => !ac.IsUsed);
-            if (actionCard != null)
-            {
-                actionCard.Use();
-                _usedActionCards.Add(actionCard);
-                // Action tile becomes regular tile for specified turns
-                tile.ConvertToRegular(3); // Default 3 turns
-            }
+            var actionCard = _actionCards.FirstOrDefault(ac => !ac.IsUsed)
+                ?? throw new InvalidOperationException("No action cards remaining in the deck.");
+            actionCard.Use();
+            tile.ConvertToRegular(tile.State.ActionTileTurnsRemaining);
+            ApplyActionCard(playerId, actionCard);
+            return;
         }
 
-        // Move to next player
-        MoveToNextPlayer();
+        AdvanceTurn();
     }
 
-    public void UseActionCard(Guid playerId, Guid actionCardId)
+    public void RecordDiceRoll(int roll)
     {
         if (Status != GameStatus.InProgress)
-        {
-            throw new InvalidOperationException("Game must be in progress to use action cards.");
-        }
+            throw new InvalidOperationException("Game must be in progress to roll dice.");
+        if (_diceRolledThisTurn)
+            throw new InvalidOperationException("Dice has already been rolled this turn.");
+        if (roll < 1 || roll > 6)
+            throw new ArgumentOutOfRangeException(nameof(roll), "Dice roll must be between 1 and 6.");
+        _diceRolledThisTurn = true;
+        _currentDiceRoll = roll;
+    }
 
-        if (CurrentPlayerId != playerId)
-        {
-            throw new InvalidOperationException("It's not this player's turn.");
-        }
+    internal void AdvanceTurnAfterActionCard()
+    {
+        AdvanceTurn();
+    }
 
-        var actionCard = _actionCards.FirstOrDefault(ac => ac.Id == actionCardId);
-        if (actionCard == null || actionCard.IsUsed)
-        {
-            throw new ArgumentException("Action card not found or already used.");
-        }
-
-        actionCard.Use();
-        _usedActionCards.Add(actionCard);
-
-        // Handle different action card types
+    private void ApplyActionCard(Guid playerId, ActionCardEntity actionCard)
+    {
         switch (actionCard.Description.Type)
         {
             case ActionCardType.ExtraTurn:
-                // Player gets another turn - don't move to next player
+                ResetDiceRoll();
                 break;
             case ActionCardType.SkipTurn:
-                var player = _players.FirstOrDefault(p => p.Id == playerId);
-                player?.SkipNextTurn();
-                MoveToNextPlayer();
-                break;
-            case ActionCardType.Teleport:
-                // This would be handled by the MovePlayer method with special validation
+                _skippedPlayerId = playerId;
+                AdvanceTurn();
                 break;
             default:
-                MoveToNextPlayer();
+                AdvanceTurn();
                 break;
         }
     }
 
-    private void MoveToNextPlayer()
+    private void AdvanceTurn()
     {
-        var activePlayers = _players.Where(p => p.IsActive).OrderBy(p => p.TurnOrder).ToList();
-        var currentIndex = activePlayers.FindIndex(p => p.Id == CurrentPlayerId);
-        
-        if (currentIndex == -1 || currentIndex == activePlayers.Count - 1)
-        {
-            CurrentPlayerId = activePlayers.First().Id;
+        Board.TickActionTiles();
+
+        var orderedPlayers = _players.OrderBy(p => p.TurnOrder).ToList();
+        var currentIndex = orderedPlayers.FindIndex(p => p.Id == CurrentPlayerId);
+        var nextIndex = (currentIndex + 1) % orderedPlayers.Count;
+
+        if (nextIndex <= currentIndex)
             CurrentTurn++;
-        }
-        else
+
+        if (orderedPlayers[nextIndex].Id == _skippedPlayerId)
         {
-            CurrentPlayerId = activePlayers[currentIndex + 1].Id;
+            _skippedPlayerId = null;
+            var skippedIndex = nextIndex;
+            nextIndex = (skippedIndex + 1) % orderedPlayers.Count;
+            if (nextIndex <= skippedIndex)
+                CurrentTurn++;
         }
 
-        // Reactivate all players for next turn
-        foreach (var player in _players)
-        {
-            player.Activate();
-        }
+        CurrentPlayerId = orderedPlayers[nextIndex].Id;
+        ResetDiceRoll();
     }
 
-    public void UpdateName(string newName)
+    private void ResetDiceRoll()
     {
-        if (string.IsNullOrWhiteSpace(newName))
-        {
-            throw new ArgumentException("Game name cannot be empty or whitespace.", nameof(newName));
-        }
-        Name = newName.Trim();
+        _diceRolledThisTurn = false;
+        _currentDiceRoll = 0;
     }
 
-    public override string ToString() => $"{Name} ({Status})";
+    public override string ToString() => $"Game ({Status})";
 }

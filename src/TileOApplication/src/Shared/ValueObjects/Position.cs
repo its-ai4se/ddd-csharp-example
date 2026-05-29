@@ -21,11 +21,7 @@ public class Position : ValueObject
 
     public override string ToString() => $"({X}, {Y})";
 
-    public static Position operator +(Position left, Position right)
-    {
-        return new Position(left.X + right.X, left.Y + right.Y);
-    }
-
+    // operator- is used internally by BoardAggregate.GetDirection
     public static Position operator -(Position left, Position right)
     {
         return new Position(left.X - right.X, left.Y - right.Y);

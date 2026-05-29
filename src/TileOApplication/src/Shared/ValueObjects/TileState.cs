@@ -6,8 +6,7 @@ public enum TileType
 {
     Regular,
     Action,
-    Hidden,
-    Starting
+    Hidden
 }
 
 public class TileState : ValueObject
@@ -47,6 +46,4 @@ public class TileState : ValueObject
         yield return IsVisited;
         yield return ActionTileTurnsRemaining;
     }
-
-    public override string ToString() => $"{Type} (Visited: {IsVisited}, ActionTurns: {ActionTileTurnsRemaining})";
 }
