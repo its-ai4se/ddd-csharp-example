@@ -23,13 +23,11 @@ public class PersonName : ValueObject
         LastName = lastName.Trim();
     }
 
-    public string FullName => $"{FirstName} {LastName}";
-
     protected override IEnumerable<object> GetEqualityComponents()
     {
         yield return FirstName;
         yield return LastName;
     }
 
-    public override string ToString() => FullName;
+    public override string ToString() => $"{FirstName} {LastName}";
 }

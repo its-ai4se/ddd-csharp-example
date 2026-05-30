@@ -1,11 +1,9 @@
 using HotelBookingManagementSystem.Domain.Booking;
 using HotelBookingManagementSystem.Domain.Booking.Repositories;
-using HotelBookingManagementSystem.Domain.Hotel;
 using HotelBookingManagementSystem.Domain.Hotel.Repositories;
-using HotelBookingManagementSystem.Domain.Room;
 using HotelBookingManagementSystem.Domain.Room.Repositories;
 using HotelBookingManagementSystem.Domain.Shared.ValueObjects;
-using HotelBookingManagementSystem.Domain.Traveller;
+using HotelBookingManagementSystem.Domain.SpecialOffer.Repositories;
 using HotelBookingManagementSystem.Domain.Traveller.Repositories;
 
 namespace HotelBookingManagementSystem.Domain.Services;
@@ -16,17 +14,20 @@ public class BookingService
     private readonly IHotelRepository _hotelRepository;
     private readonly IRoomRepository _roomRepository;
     private readonly IBookingRepository _bookingRepository;
+    private readonly ISpecialOfferRepository _specialOfferRepository;
 
     public BookingService(
         ITravellerRepository travellerRepository,
         IHotelRepository hotelRepository,
         IRoomRepository roomRepository,
-        IBookingRepository bookingRepository)
+        IBookingRepository bookingRepository,
+        ISpecialOfferRepository specialOfferRepository)
     {
         _travellerRepository = travellerRepository ?? throw new ArgumentNullException(nameof(travellerRepository));
         _hotelRepository = hotelRepository ?? throw new ArgumentNullException(nameof(hotelRepository));
         _roomRepository = roomRepository ?? throw new ArgumentNullException(nameof(roomRepository));
         _bookingRepository = bookingRepository ?? throw new ArgumentNullException(nameof(bookingRepository));
+        _specialOfferRepository = specialOfferRepository ?? throw new ArgumentNullException(nameof(specialOfferRepository));
     }
 
     public BookingAggregate CreatePreliminaryBooking(
@@ -38,42 +39,22 @@ public class BookingService
         PaymentType paymentType,
         DateTime? cancellationDeadline = null)
     {
-        // Validate traveller exists
-        var traveller = _travellerRepository.GetById(travellerId);
-        if (traveller == null)
-        {
-            throw new ArgumentException("Traveller not found.", nameof(travellerId));
-        }
+        var traveller = _travellerRepository.GetById(travellerId) ?? throw new ArgumentException("Traveller not found.", nameof(travellerId));
+        var hotel = _hotelRepository.GetById(hotelId) ?? throw new ArgumentException("Hotel not found.", nameof(hotelId));
 
-        // Validate hotel exists
-        var hotel = _hotelRepository.GetById(hotelId);
-        if (hotel == null)
-        {
-            throw new ArgumentException("Hotel not found.", nameof(hotelId));
-        }
-
-        // Validate room exists and belongs to hotel
-        var room = _roomRepository.GetById(roomId);
-        if (room == null)
-        {
-            throw new ArgumentException("Room not found.", nameof(roomId));
-        }
-
+        var room = _roomRepository.GetById(roomId) ?? throw new ArgumentException("Room not found.", nameof(roomId));
         if (room.HotelId != hotelId)
         {
             throw new ArgumentException("Room does not belong to the specified hotel.");
         }
 
-        // Check room availability
         if (!room.IsAvailable(stayPeriod, numberOfRooms))
         {
             throw new InvalidOperationException("Room is not available for the requested period and number of rooms.");
         }
 
-        // Calculate total price
         var totalPrice = room.CalculateTotalPrice(stayPeriod, numberOfRooms);
 
-        // Create preliminary booking
         var booking = new BookingAggregate(
             travellerId,
             hotelId,
@@ -84,60 +65,71 @@ public class BookingService
             paymentType,
             cancellationDeadline);
 
-        // Add booking to traveller
-        traveller.AddBooking(booking.Id);
-
-        // Add booking to hotel
-        hotel.AddBooking(booking.Id);
-
         return booking;
     }
 
     public void FinalizeBooking(Guid bookingId, CreditCardInfo creditCardInfo)
     {
-        var booking = _bookingRepository.GetById(bookingId);
-        if (booking == null)
-        {
-            throw new ArgumentException("Booking not found.", nameof(bookingId));
-        }
-
+        var booking = _bookingRepository.GetById(bookingId) ?? throw new ArgumentException("Booking not found.", nameof(bookingId));
         booking.FinalizeBooking(creditCardInfo);
     }
 
     public void ConfirmBooking(Guid bookingId)
     {
-        var booking = _bookingRepository.GetById(bookingId);
-        if (booking == null)
-        {
-            throw new ArgumentException("Booking not found.", nameof(bookingId));
-        }
-
+        var booking = _bookingRepository.GetById(bookingId) ?? throw new ArgumentException("Booking not found.", nameof(bookingId));
         booking.ConfirmBooking();
     }
 
-    public void CancelBooking(Guid bookingId, string reason)
+    public void CancelByHotel(Guid bookingId)
     {
-        var booking = _bookingRepository.GetById(bookingId);
-        if (booking == null)
-        {
-            throw new ArgumentException("Booking not found.", nameof(bookingId));
-        }
+        var booking = _bookingRepository.GetById(bookingId)
+            ?? throw new ArgumentException("Booking not found.", nameof(bookingId));
 
-        booking.CancelBooking(reason);
+        booking.CancelBooking(CancellationInitiator.Hotel);
     }
 
-    public List<BookingAggregate> GetExpiredBookings()
+    public void CancelByTraveller(Guid bookingId)
     {
-        var allBookings = _bookingRepository.GetAll();
-        return allBookings.Where(b => b.IsExpired()).ToList();
+        var booking = _bookingRepository.GetById(bookingId)
+            ?? throw new ArgumentException("Booking not found.", nameof(bookingId));
+
+        booking.CancelBooking(CancellationInitiator.Traveller);
     }
 
     public void ProcessExpiredBookings()
     {
-        var expiredBookings = GetExpiredBookings();
-        foreach (var booking in expiredBookings)
-        {
+        var expired = _bookingRepository.GetAll().Where(b => b.IsExpired());
+        foreach (var booking in expired)
             booking.ExpireBooking();
-        }
+    }
+
+    public BookingAggregate SwitchToSpecialOffer(Guid originalBookingId, Guid acceptedOfferId)
+    {
+        var original = _bookingRepository.GetById(originalBookingId)
+            ?? throw new ArgumentException("Booking not found.", nameof(originalBookingId));
+
+        if (original.Status != BookingStatus.Preliminary)
+            throw new InvalidOperationException("Only preliminary bookings can be switched to a special offer.");
+
+        var offer = _specialOfferRepository.GetById(acceptedOfferId)
+            ?? throw new ArgumentException("Special offer not found.", nameof(acceptedOfferId));
+
+        if (!offer.IsPending())
+            throw new InvalidOperationException("Cannot switch to an expired or already-responded offer.");
+
+        offer.AcceptOffer();
+        original.CancelBooking(CancellationInitiator.Traveller);
+
+        var newBooking = new BookingAggregate(
+            original.TravellerId,
+            offer.CompetingHotelId,
+            offer.CompetingRoomId,
+            offer.StayPeriod,
+            offer.NumberOfRooms,
+            offer.OfferedPrice,
+            original.PaymentType,
+            original.CancellationDeadline);
+
+        return newBooking;
     }
 }

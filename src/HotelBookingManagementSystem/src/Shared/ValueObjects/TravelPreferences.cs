@@ -39,22 +39,6 @@ public class TravelPreferences : ValueObject
                PetFriendly || FitnessCenter || Pool || BusinessCenter;
     }
 
-    public List<string> GetActivePreferences()
-    {
-        var preferences = new List<string>();
-        
-        if (BreakfastIncluded) preferences.Add("Breakfast Included");
-        if (FreeWifi) preferences.Add("Free WiFi");
-        if (FrontDesk24Hours) preferences.Add("24/7 Front Desk");
-        if (ParkingAvailable) preferences.Add("Parking Available");
-        if (PetFriendly) preferences.Add("Pet Friendly");
-        if (FitnessCenter) preferences.Add("Fitness Center");
-        if (Pool) preferences.Add("Pool");
-        if (BusinessCenter) preferences.Add("Business Center");
-
-        return preferences;
-    }
-
     protected override IEnumerable<object> GetEqualityComponents()
     {
         yield return BreakfastIncluded;
@@ -65,11 +49,5 @@ public class TravelPreferences : ValueObject
         yield return FitnessCenter;
         yield return Pool;
         yield return BusinessCenter;
-    }
-
-    public override string ToString()
-    {
-        var preferences = GetActivePreferences();
-        return preferences.Count > 0 ? string.Join(", ", preferences) : "No preferences";
     }
 }

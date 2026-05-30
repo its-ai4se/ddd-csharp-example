@@ -20,11 +20,6 @@ public class DateRange : ValueObject
 
     public int NumberOfNights => (EndDate - StartDate).Days;
 
-    public bool Contains(DateTime date)
-    {
-        return date.Date >= StartDate && date.Date < EndDate;
-    }
-
     public bool Overlaps(DateRange other)
     {
         return StartDate < other.EndDate && EndDate > other.StartDate;

@@ -3,21 +3,6 @@ using HotelBookingManagementSystem.Domain.Shared.ValueObjects;
 
 namespace HotelBookingManagementSystem.Domain.Booking;
 
-public enum BookingStatus
-{
-    Preliminary,
-    Finalized,
-    Confirmed,
-    Cancelled,
-    Expired
-}
-
-public enum PaymentType
-{
-    PrePaid,
-    PayAtHotel
-}
-
 public class BookingAggregate : AggregateRoot
 {
     public Guid TravellerId { get; private set; }
@@ -31,9 +16,8 @@ public class BookingAggregate : AggregateRoot
     public CreditCardInfo? CreditCardInfo { get; private set; }
     public DateTime? CancellationDeadline { get; private set; }
     public DateTime CreatedAt { get; private set; }
-    public DateTime? ConfirmedAt { get; private set; }
     public DateTime? CancelledAt { get; private set; }
-    public string? CancellationReason { get; private set; }
+    public CancellationInitiator? CancelledBy { get; private set; }
 
     public BookingAggregate(
         Guid id,
@@ -94,50 +78,34 @@ public class BookingAggregate : AggregateRoot
     public void ConfirmBooking()
     {
         if (Status != BookingStatus.Finalized)
-        {
             throw new InvalidOperationException("Only finalized bookings can be confirmed.");
-        }
 
         Status = BookingStatus.Confirmed;
-        ConfirmedAt = DateTime.UtcNow;
+        AddDomainEvent(new BookingConfirmedEvent(Id, TravellerId, HotelId, StayPeriod));
     }
 
-    public void CancelBooking(string reason)
+    public void CancelBooking(CancellationInitiator initiator)
     {
         if (Status == BookingStatus.Cancelled)
-        {
             throw new InvalidOperationException("Booking is already cancelled.");
-        }
-
         if (Status == BookingStatus.Expired)
-        {
             throw new InvalidOperationException("Cannot cancel an expired booking.");
-        }
 
         Status = BookingStatus.Cancelled;
         CancelledAt = DateTime.UtcNow;
-        CancellationReason = !string.IsNullOrWhiteSpace(reason) ? reason.Trim() : "No reason provided";
+        CancelledBy = initiator;
     }
+
+    public bool RequiresHotelCompensation() =>
+        Status == BookingStatus.Cancelled && CancelledBy == CancellationInitiator.Hotel;
 
     public void ExpireBooking()
     {
         if (Status == BookingStatus.Confirmed || Status == BookingStatus.Cancelled)
-        {
             throw new InvalidOperationException("Cannot expire confirmed or cancelled bookings.");
-        }
 
         Status = BookingStatus.Expired;
-    }
-
-    public bool CanBeCancelled()
-    {
-        if (Status != BookingStatus.Confirmed)
-            return false;
-
-        if (CancellationDeadline == null)
-            return true;
-
-        return DateTime.UtcNow <= CancellationDeadline.Value;
+        AddDomainEvent(new BookingAutoExpiredEvent(Id, PaymentType == PaymentType.PrePaid, TotalPrice));
     }
 
     public bool IsCancellationAfterDeadline()
@@ -151,59 +119,14 @@ public class BookingAggregate : AggregateRoot
     public Money CalculateCancellationFee()
     {
         if (Status != BookingStatus.Cancelled)
-            return new Money(0);
+            return new Money(0, TotalPrice.Currency);
 
         if (!IsCancellationAfterDeadline())
-            return new Money(0);
+            return new Money(0, TotalPrice.Currency);
 
-        // Charge for 1 night accommodation
         return TotalPrice / StayPeriod.NumberOfNights;
     }
 
-    public bool RequiresConfirmation()
-    {
-        return Status == BookingStatus.Finalized && 
-               ConfirmedAt == null && 
-               DateTime.UtcNow > CreatedAt.AddHours(24);
-    }
-
-    public bool IsExpired()
-    {
-        return Status == BookingStatus.Finalized && 
-               ConfirmedAt == null && 
-               DateTime.UtcNow > CreatedAt.AddHours(24);
-    }
-
-    public void UpdatePaymentType(PaymentType newPaymentType)
-    {
-        if (Status != BookingStatus.Preliminary)
-        {
-            throw new InvalidOperationException("Payment type can only be changed for preliminary bookings.");
-        }
-
-        PaymentType = newPaymentType;
-    }
-
-    public void UpdateCancellationDeadline(DateTime? newDeadline)
-    {
-        if (Status != BookingStatus.Preliminary)
-        {
-            throw new InvalidOperationException("Cancellation deadline can only be changed for preliminary bookings.");
-        }
-
-        CancellationDeadline = newDeadline;
-    }
-
-    public string GetStatusDescription()
-    {
-        return Status switch
-        {
-            BookingStatus.Preliminary => "Preliminary booking awaiting finalization",
-            BookingStatus.Finalized => "Finalized booking awaiting hotel confirmation",
-            BookingStatus.Confirmed => "Confirmed booking",
-            BookingStatus.Cancelled => $"Cancelled{(CancellationReason != null ? $": {CancellationReason}" : "")}",
-            BookingStatus.Expired => "Expired booking",
-            _ => "Unknown status"
-        };
-    }
+    public bool IsExpired() =>
+        Status == BookingStatus.Finalized && DateTime.UtcNow > CreatedAt.AddHours(24);
 }

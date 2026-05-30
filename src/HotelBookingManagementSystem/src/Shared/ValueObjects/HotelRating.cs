@@ -9,16 +9,10 @@ public class HotelRating : ValueObject
     public HotelRating(int stars)
     {
         if (stars < 1 || stars > 5)
-        {
             throw new ArgumentException("Hotel rating must be between 1 and 5 stars.", nameof(stars));
-        }
 
         Stars = stars;
     }
-
-    public static implicit operator int(HotelRating rating) => rating.Stars;
-
-    public static implicit operator HotelRating(int stars) => new(stars);
 
     protected override IEnumerable<object> GetEqualityComponents()
     {
