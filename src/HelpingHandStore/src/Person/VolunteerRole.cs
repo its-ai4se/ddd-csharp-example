@@ -1,6 +1,3 @@
-using HelpingHandStore.Domain.Shared.Common;
-using HelpingHandStore.Domain.Shared.ValueObjects;
-
 namespace HelpingHandStore.Domain.Person;
 
 public class VolunteerRole : UserRole
@@ -15,8 +12,6 @@ public class VolunteerRole : UserRole
     {
     }
 
-    public IReadOnlyList<DateOnly> AvailableDays => _availableDays.AsReadOnly();
-
     public void AddAvailableDay(DateOnly date)
     {
         if (_availableDays.Contains(date))
@@ -27,18 +22,8 @@ public class VolunteerRole : UserRole
         _availableDays.Add(date);
     }
 
-    public void RemoveAvailableDay(DateOnly date)
-    {
-        _availableDays.Remove(date);
-    }
-
     public bool IsAvailableOn(DateOnly date)
     {
         return _availableDays.Contains(date);
-    }
-
-    public void ClearAvailableDays()
-    {
-        _availableDays.Clear();
     }
 }

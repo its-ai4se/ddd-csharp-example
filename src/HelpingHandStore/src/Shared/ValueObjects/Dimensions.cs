@@ -4,40 +4,22 @@ namespace HelpingHandStore.Domain.Shared.ValueObjects;
 
 public class Dimensions : ValueObject
 {
-    public decimal Length { get; }
-    public decimal Width { get; }
-    public decimal Height { get; }
+    public decimal Volume { get; }
 
-    public Dimensions(decimal length, decimal width, decimal height)
+    public Dimensions(decimal volume)
     {
-        if (length <= 0)
+        if (volume <= 0)
         {
-            throw new ArgumentException("Length must be greater than zero.", nameof(length));
+            throw new ArgumentException("Volume must be greater than zero.", nameof(volume));
         }
 
-        if (width <= 0)
-        {
-            throw new ArgumentException("Width must be greater than zero.", nameof(width));
-        }
-
-        if (height <= 0)
-        {
-            throw new ArgumentException("Height must be greater than zero.", nameof(height));
-        }
-
-        Length = length;
-        Width = width;
-        Height = height;
+        Volume = volume;
     }
-
-    public decimal Volume => Length * Width * Height;
 
     protected override IEnumerable<object> GetEqualityComponents()
     {
-        yield return Length;
-        yield return Width;
-        yield return Height;
+        yield return Volume;
     }
 
-    public override string ToString() => $"{Length} x {Width} x {Height}";
+    public override string ToString() => $"{Volume} m³";
 }

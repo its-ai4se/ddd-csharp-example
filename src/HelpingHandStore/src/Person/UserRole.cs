@@ -1,5 +1,4 @@
 using HelpingHandStore.Domain.Shared.Common;
-using HelpingHandStore.Domain.Shared.ValueObjects;
 
 namespace HelpingHandStore.Domain.Person;
 

@@ -1,53 +1,28 @@
-using HelpingHandStore.Domain.Shared.Services;
-using HelpingHandStore.Domain.Shared.ValueObjects;
+using HelpingHandStore.Domain.Shared.Common;
 using HelpingHandStore.Domain.Vehicle;
+using HelpingHandStore.Domain.Route;
+using HelpingHandStore.Domain.Person;
 using HelpingHandStore.Domain.Item;
 
 namespace HelpingHandStore.Domain.Services;
 
-public class RoutePlanningService : DomainServiceBase
+public class RoutePlanningService
 {
-    public RoutePlanningService(IClock clock) : base(clock)
+    public static RouteAggregate CreatePickupRoute(VehicleAggregate vehicle, VolunteerRole volunteer, DateOnly date)
     {
-    }
-
-    public bool CanAccommodateItemInRoute(VehicleAggregate vehicle, ItemAggregate item, IEnumerable<ItemAggregate> existingItems)
-    {
-        if (!vehicle.IsAvailable())
+        if (!volunteer.IsAvailableOn(date))
         {
-            return false;
+            throw new DomainException("No available volunteer driver for this date; route cannot be created.");
         }
 
-        // Calculate total dimensions and weight of existing items
-        var totalDimensions = existingItems.Aggregate(
-            new Dimensions(0, 0, 0),
-            (acc, existingItem) => new Dimensions(
-                acc.Length + existingItem.Dimensions.Length,
-                acc.Width + existingItem.Dimensions.Width,
-                acc.Height + existingItem.Dimensions.Height
-            )
-        );
-
-        var totalWeight = existingItems.Aggregate(
-            new Weight(0),
-            (acc, existingItem) => new Weight(acc.Value + existingItem.Weight.Value)
-        );
-
-        // Add the new item
-        var newTotalDimensions = new Dimensions(
-            totalDimensions.Length + item.Dimensions.Length,
-            totalDimensions.Width + item.Dimensions.Width,
-            totalDimensions.Height + item.Dimensions.Height
-        );
-
-        var newTotalWeight = new Weight(totalWeight.Value + item.Weight.Value);
-
-        // Check if vehicle can accommodate
-        return vehicle.CanAccommodateItem(newTotalDimensions, newTotalWeight);
+        return new RouteAggregate(vehicle.H2SId, date, vehicle.Id, volunteer.PersonId);
     }
 
-    public bool IsValidPickupTime(ScheduledDate scheduledDate)
+    public static bool CanAccommodateItemInRoute(VehicleAggregate vehicle, ItemAggregate item, IEnumerable<ItemAggregate> existingItems)
     {
-        return scheduledDate.IsWeekday() && scheduledDate.IsWithinPickupHours();
+        var totalVolume = item.Dimensions.Volume + existingItems.Sum(i => i.Dimensions.Volume);
+        var totalWeight = item.Weight.Value + existingItems.Sum(i => i.Weight.Value);
+
+        return vehicle.CanAccommodate(totalVolume, totalWeight);
     }
 }

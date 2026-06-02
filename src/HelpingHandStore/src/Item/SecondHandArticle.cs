@@ -6,47 +6,48 @@ namespace HelpingHandStore.Domain.Item;
 public class SecondHandArticle : ItemAggregate
 {
     public RfidCode? RfidCode { get; private set; }
-    public ItemCategory Category { get; private set; }
+    public ItemCategory? Category { get; private set; }
     public bool IsDiscarded { get; private set; }
     public bool IsTagged { get; private set; }
+    public bool IsAtDistributionCenter { get; private set; }
 
-    public SecondHandArticle(Guid id, ItemDescription description, Dimensions dimensions, Weight weight, ScheduledDate requestedPickupDate, Guid residentId) 
-        : base(id, description, dimensions, weight, requestedPickupDate, residentId)
+    public SecondHandArticle(Guid id, Guid h2sId, ItemDescription description, Dimensions dimensions, Weight weight, ScheduledDate requestedPickupDate, Guid residentId) 
+        : base(id, h2sId, description, dimensions, weight, requestedPickupDate, residentId)
     {
-        IsDiscarded = false;
-        IsTagged = false;
     }
 
-    public SecondHandArticle(ItemDescription description, Dimensions dimensions, Weight weight, ScheduledDate requestedPickupDate, Guid residentId) 
-        : base(description, dimensions, weight, requestedPickupDate, residentId)
+    public SecondHandArticle(Guid h2sId, ItemDescription description, Dimensions dimensions, Weight weight, ScheduledDate requestedPickupDate, Guid residentId) 
+        : base(h2sId, description, dimensions, weight, requestedPickupDate, residentId)
     {
-        IsDiscarded = false;
-        IsTagged = false;
+    }
+
+    public void DropOffAtDistributionCenter()
+    {
+        IsAtDistributionCenter = true;
     }
 
     public void TagWithRfid(RfidCode rfidCode, ItemCategory category)
     {
-        if (rfidCode == null)
+        ArgumentNullException.ThrowIfNull(rfidCode);
+
+        if (!IsAtDistributionCenter)
         {
-            throw new ArgumentNullException(nameof(rfidCode));
+            throw new DomainException("Article must be dropped off at the distribution center before it can be tagged.");
         }
 
         RfidCode = rfidCode;
-        Category = category;
+        Category = category ?? throw new ArgumentNullException(nameof(category));
         IsTagged = true;
-        IsDiscarded = false;
     }
 
     public void Discard()
     {
-        IsDiscarded = true;
-        IsTagged = false;
-        RfidCode = null;
-    }
+        if (!IsAtDistributionCenter)
+        {
+            throw new DomainException("Article must be dropped off at the distribution center before it can be discarded.");
+        }
 
-    public void UpdateCategory(ItemCategory newCategory)
-    {
-        Category = newCategory;
+        IsDiscarded = true;
     }
 
     public bool CanBeDistributed()
@@ -54,5 +55,8 @@ public class SecondHandArticle : ItemAggregate
         return IsTagged && !IsDiscarded;
     }
 
-    public override string ToString() => $"SecondHandArticle: {Description} (Category: {Category}, Tagged: {IsTagged})";
+    public void UpdateDescription(ItemDescription newDescription)
+    {
+        Description = newDescription ?? throw new ArgumentNullException(nameof(newDescription));
+    }
 }

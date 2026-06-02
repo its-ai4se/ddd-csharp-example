@@ -1,21 +1,19 @@
-using HelpingHandStore.Domain.Shared.Services;
+using HelpingHandStore.Domain.Shared.Common;
 using HelpingHandStore.Domain.Shared.ValueObjects;
 using HelpingHandStore.Domain.Item;
+using HelpingHandStore.Domain.Person;
 
 namespace HelpingHandStore.Domain.Services;
 
-public class ItemProcessingService : DomainServiceBase
+public class ItemProcessingService
 {
-    public ItemProcessingService(IClock clock) : base(clock)
+    public static void ProcessSecondHandArticle(EmployeeRole employee, SecondHandArticle article, ItemCategory category, bool isUsable)
     {
-    }
+        RequireEmployee(employee);
 
-    public void ProcessSecondHandArticle(SecondHandArticle article, ItemCategory category, bool isUsable)
-    {
         if (isUsable)
         {
-            var rfidCode = GenerateRfidCode();
-            article.TagWithRfid(rfidCode, category);
+            article.TagWithRfid(new RfidCode(Guid.NewGuid().ToString("N")), category);
         }
         else
         {
@@ -23,19 +21,17 @@ public class ItemProcessingService : DomainServiceBase
         }
     }
 
-    public bool ShouldDeliverToClient(SecondHandArticle article, IEnumerable<ItemCategory> clientNeededCategories)
+    public static void CorrectDescription(EmployeeRole employee, SecondHandArticle article, ItemDescription correctedDescription)
     {
-        return article.CanBeDistributed() && clientNeededCategories.Contains(article.Category);
+        RequireEmployee(employee);
+        article.UpdateDescription(correctedDescription);
     }
 
-    private RfidCode GenerateRfidCode()
+    private static void RequireEmployee(EmployeeRole employee)
     {
-        // Generate a random 16-character alphanumeric RFID code
-        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        var random = new Random();
-        var code = new string(Enumerable.Repeat(chars, 16)
-            .Select(s => s[random.Next(s.Length)]).ToArray());
-        
-        return new RfidCode(code);
+        if (employee == null)
+        {
+            throw new DomainException("Quality inspection must be performed by an H2S employee.");
+        }
     }
 }

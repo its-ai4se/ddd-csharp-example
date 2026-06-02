@@ -1,54 +1,52 @@
 using HelpingHandStore.Domain.Shared.Common;
-using HelpingHandStore.Domain.Shared.ValueObjects;
 
 namespace HelpingHandStore.Domain.Route;
 
-public enum RouteStatus
-{
-    Planned,
-    InProgress,
-    Completed,
-    Cancelled
-}
-
 public class RouteAggregate : AggregateRoot
 {
+    public Guid H2SId { get; private set; }
     public DateOnly Date { get; private set; }
     public Guid VehicleId { get; private set; }
-    public Guid? VolunteerId { get; private set; }
-    public RouteStatus Status { get; private set; }
+    public Guid VolunteerId { get; private set; }
+    public bool DeliveriesCompleted { get; private set; }
+    public bool PickupsStarted { get; private set; }
 
-    private readonly List<Guid> _scheduledItemIds = new();
-    private readonly List<Guid> _deliveryItemIds = new();
+    private readonly List<Guid> _scheduledItemIds = [];
+    private readonly List<Guid> _deliveryItemIds = [];
 
-    public RouteAggregate(Guid id, DateOnly date, Guid vehicleId, Guid? volunteerId = null) : base(id)
+    public RouteAggregate(Guid id, Guid h2sId, DateOnly date, Guid vehicleId, Guid volunteerId) : base(id)
     {
+        Validate(date, volunteerId);
+        H2SId = h2sId;
         Date = date;
         VehicleId = vehicleId;
         VolunteerId = volunteerId;
-        Status = RouteStatus.Planned;
     }
 
-    public RouteAggregate(DateOnly date, Guid vehicleId, Guid? volunteerId = null) : base()
+    public RouteAggregate(Guid h2sId, DateOnly date, Guid vehicleId, Guid volunteerId) : base()
     {
+        Validate(date, volunteerId);
+        H2SId = h2sId;
         Date = date;
         VehicleId = vehicleId;
         VolunteerId = volunteerId;
-        Status = RouteStatus.Planned;
+    }
+
+    private static void Validate(DateOnly date, Guid volunteerId)
+    {
+        if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday)
+        {
+            throw new DomainException("A pickup route can only be planned for a weekday.");
+        }
+
+        if (volunteerId == Guid.Empty)
+        {
+            throw new DomainException("A pickup route requires an assigned volunteer driver.");
+        }
     }
 
     public IReadOnlyList<Guid> ScheduledItemIds => _scheduledItemIds.AsReadOnly();
     public IReadOnlyList<Guid> DeliveryItemIds => _deliveryItemIds.AsReadOnly();
-
-    public void AssignVolunteer(Guid volunteerId)
-    {
-        VolunteerId = volunteerId;
-    }
-
-    public void RemoveVolunteer()
-    {
-        VolunteerId = null;
-    }
 
     public void AddScheduledItem(Guid itemId)
     {
@@ -58,78 +56,31 @@ public class RouteAggregate : AggregateRoot
         }
     }
 
-    public void RemoveScheduledItem(Guid itemId)
-    {
-        _scheduledItemIds.Remove(itemId);
-    }
-
     public void AddDeliveryItem(Guid itemId)
     {
+        if (PickupsStarted)
+        {
+            throw new DomainException("Client deliveries cannot be arranged after pickups have started.");
+        }
+
         if (!_deliveryItemIds.Contains(itemId))
         {
             _deliveryItemIds.Add(itemId);
         }
     }
 
-    public void RemoveDeliveryItem(Guid itemId)
+    public void CompleteDeliveries()
     {
-        _deliveryItemIds.Remove(itemId);
+        DeliveriesCompleted = true;
     }
 
-    public void StartRoute()
+    public void StartPickups()
     {
-        if (Status != RouteStatus.Planned)
+        if (!DeliveriesCompleted)
         {
-            throw new InvalidOperationException("Route can only be started when it's in Planned status.");
+            throw new DomainException("Client deliveries must be completed before pickups can begin.");
         }
 
-        Status = RouteStatus.InProgress;
+        PickupsStarted = true;
     }
-
-    public void CompleteRoute()
-    {
-        if (Status != RouteStatus.InProgress)
-        {
-            throw new InvalidOperationException("Route can only be completed when it's in progress.");
-        }
-
-        Status = RouteStatus.Completed;
-    }
-
-    public void CancelRoute()
-    {
-        if (Status == RouteStatus.Completed)
-        {
-            throw new InvalidOperationException("Cannot cancel a completed route.");
-        }
-
-        Status = RouteStatus.Cancelled;
-    }
-
-    public bool HasVolunteer()
-    {
-        return VolunteerId.HasValue;
-    }
-
-    public bool IsPlanned()
-    {
-        return Status == RouteStatus.Planned;
-    }
-
-    public bool IsInProgress()
-    {
-        return Status == RouteStatus.InProgress;
-    }
-
-    public bool IsCompleted()
-    {
-        return Status == RouteStatus.Completed;
-    }
-
-    public bool IsCancelled()
-    {
-        return Status == RouteStatus.Cancelled;
-    }
-
-    public override string ToString() => $"Route: {Date} (Vehicle: {VehicleId}, Volunteer: {VolunteerId}, Status: {Status})";
 }

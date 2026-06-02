@@ -13,17 +13,7 @@ public class RfidCode : ValueObject
             throw new ArgumentException("RFID code cannot be empty or whitespace.", nameof(code));
         }
 
-        if (code.Length != 16)
-        {
-            throw new ArgumentException("RFID code must be exactly 16 characters.", nameof(code));
-        }
-
-        if (!code.All(c => char.IsLetterOrDigit(c)))
-        {
-            throw new ArgumentException("RFID code must contain only alphanumeric characters.", nameof(code));
-        }
-
-        Code = code.ToUpperInvariant();
+        Code = code.Trim();
     }
 
     protected override IEnumerable<object> GetEqualityComponents()

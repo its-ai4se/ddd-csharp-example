@@ -5,6 +5,7 @@ namespace HelpingHandStore.Domain.Person;
 
 public class PersonAggregate : AggregateRoot
 {
+    public Guid H2SId { get; private set; }
     public PersonName Name { get; private set; }
     public Address Address { get; private set; }
     public PhoneNumber PhoneNumber { get; private set; }
@@ -12,50 +13,27 @@ public class PersonAggregate : AggregateRoot
 
     private readonly List<UserRole> _roles = new();
 
-    public PersonAggregate(Guid id, PersonName name, Address address, PhoneNumber phoneNumber, EmailAddress? emailAddress = null) : base(id)
+    public PersonAggregate(Guid id, Guid h2sId, PersonName name, Address address, PhoneNumber phoneNumber, EmailAddress? emailAddress = null) : base(id)
     {
+        H2SId = h2sId;
         Name = name ?? throw new ArgumentNullException(nameof(name));
         Address = address ?? throw new ArgumentNullException(nameof(address));
         PhoneNumber = phoneNumber ?? throw new ArgumentNullException(nameof(phoneNumber));
         EmailAddress = emailAddress;
     }
 
-    public PersonAggregate(PersonName name, Address address, PhoneNumber phoneNumber, EmailAddress? emailAddress = null) : base()
+    public PersonAggregate(Guid h2sId, PersonName name, Address address, PhoneNumber phoneNumber, EmailAddress? emailAddress = null) : base()
     {
+        H2SId = h2sId;
         Name = name ?? throw new ArgumentNullException(nameof(name));
         Address = address ?? throw new ArgumentNullException(nameof(address));
         PhoneNumber = phoneNumber ?? throw new ArgumentNullException(nameof(phoneNumber));
         EmailAddress = emailAddress;
-    }
-
-    public IReadOnlyList<UserRole> Roles => _roles.AsReadOnly();
-
-    public void UpdateName(PersonName newName)
-    {
-        Name = newName ?? throw new ArgumentNullException(nameof(newName));
-    }
-
-    public void UpdateAddress(Address newAddress)
-    {
-        Address = newAddress ?? throw new ArgumentNullException(nameof(newAddress));
-    }
-
-    public void UpdatePhoneNumber(PhoneNumber newPhoneNumber)
-    {
-        PhoneNumber = newPhoneNumber ?? throw new ArgumentNullException(nameof(newPhoneNumber));
-    }
-
-    public void UpdateEmailAddress(EmailAddress? newEmailAddress)
-    {
-        EmailAddress = newEmailAddress;
     }
 
     public void AddRole(UserRole role)
     {
-        if (role == null)
-        {
-            throw new ArgumentNullException(nameof(role));
-        }
+        ArgumentNullException.ThrowIfNull(role);
 
         if (role.PersonId != Id)
         {
@@ -68,15 +46,6 @@ public class PersonAggregate : AggregateRoot
         }
 
         _roles.Add(role);
-    }
-
-    public void RemoveRole<T>() where T : UserRole
-    {
-        var roleToRemove = _roles.OfType<T>().FirstOrDefault();
-        if (roleToRemove != null)
-        {
-            _roles.Remove(roleToRemove);
-        }
     }
 
     public bool HasRole<T>() where T : UserRole

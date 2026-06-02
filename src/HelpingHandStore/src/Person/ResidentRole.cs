@@ -1,5 +1,3 @@
-using HelpingHandStore.Domain.Shared.Common;
-
 namespace HelpingHandStore.Domain.Person;
 
 public class ResidentRole : UserRole

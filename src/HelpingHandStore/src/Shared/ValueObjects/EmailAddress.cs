@@ -13,25 +13,7 @@ public class EmailAddress : ValueObject
             throw new ArgumentException("Email address cannot be empty or whitespace.", nameof(value));
         }
 
-        if (!IsValidEmail(value))
-        {
-            throw new ArgumentException("Invalid email address format.", nameof(value));
-        }
-
-        Value = value.Trim().ToLowerInvariant();
-    }
-
-    private static bool IsValidEmail(string email)
-    {
-        try
-        {
-            var addr = new System.Net.Mail.MailAddress(email);
-            return addr.Address == email;
-        }
-        catch
-        {
-            return false;
-        }
+        Value = value.Trim();
     }
 
     protected override IEnumerable<object> GetEqualityComponents()

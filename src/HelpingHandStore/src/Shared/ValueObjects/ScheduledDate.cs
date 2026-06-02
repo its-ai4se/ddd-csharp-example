@@ -5,41 +5,29 @@ namespace HelpingHandStore.Domain.Shared.ValueObjects;
 public class ScheduledDate : ValueObject
 {
     public DateOnly Date { get; }
-    public TimeOnly StartTime { get; }
-    public TimeOnly EndTime { get; }
+    public TimeOnly PickupTime { get; }
 
-    public ScheduledDate(DateOnly date, TimeOnly startTime, TimeOnly endTime)
+    public ScheduledDate(DateOnly date, TimeOnly pickupTime)
     {
-        if (startTime >= endTime)
+        if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday)
         {
-            throw new ArgumentException("Start time must be before end time.", nameof(startTime));
+            throw new DomainException("A pickup can only be scheduled on a weekday.");
+        }
+
+        if (pickupTime < new TimeOnly(8, 0) || pickupTime > new TimeOnly(14, 0))
+        {
+            throw new DomainException("A scheduled pickup must occur between 8:00 and 14:00.");
         }
 
         Date = date;
-        StartTime = startTime;
-        EndTime = endTime;
-    }
-
-    public ScheduledDate(DateOnly date) : this(date, new TimeOnly(8, 0), new TimeOnly(14, 0))
-    {
-    }
-
-    public bool IsWeekday()
-    {
-        return Date.DayOfWeek != DayOfWeek.Saturday && Date.DayOfWeek != DayOfWeek.Sunday;
-    }
-
-    public bool IsWithinPickupHours()
-    {
-        return StartTime >= new TimeOnly(8, 0) && EndTime <= new TimeOnly(14, 0);
+        PickupTime = pickupTime;
     }
 
     protected override IEnumerable<object> GetEqualityComponents()
     {
         yield return Date;
-        yield return StartTime;
-        yield return EndTime;
+        yield return PickupTime;
     }
 
-    public override string ToString() => $"{Date} {StartTime}-{EndTime}";
+    public override string ToString() => $"{Date} {PickupTime}";
 }

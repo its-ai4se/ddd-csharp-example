@@ -4,32 +4,22 @@ namespace HelpingHandStore.Domain.Shared.ValueObjects;
 
 public class PersonName : ValueObject
 {
-    public string FirstName { get; }
-    public string LastName { get; }
+    public string Value { get; }
 
-    public PersonName(string firstName, string lastName)
+    public PersonName(string value)
     {
-        if (string.IsNullOrWhiteSpace(firstName))
+        if (string.IsNullOrWhiteSpace(value))
         {
-            throw new ArgumentException("First name cannot be empty or whitespace.", nameof(firstName));
+            throw new ArgumentException("Name cannot be empty or whitespace.", nameof(value));
         }
 
-        if (string.IsNullOrWhiteSpace(lastName))
-        {
-            throw new ArgumentException("Last name cannot be empty or whitespace.", nameof(lastName));
-        }
-
-        FirstName = firstName.Trim();
-        LastName = lastName.Trim();
+        Value = value.Trim();
     }
-
-    public string FullName => $"{FirstName} {LastName}";
 
     protected override IEnumerable<object> GetEqualityComponents()
     {
-        yield return FirstName;
-        yield return LastName;
+        yield return Value;
     }
 
-    public override string ToString() => FullName;
+    public override string ToString() => Value;
 }

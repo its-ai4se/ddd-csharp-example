@@ -13,11 +13,6 @@ public class ItemDescription : ValueObject
             throw new ArgumentException("Item description cannot be empty or whitespace.", nameof(description));
         }
 
-        if (description.Length > 500)
-        {
-            throw new ArgumentException("Item description cannot exceed 500 characters.", nameof(description));
-        }
-
         Description = description.Trim();
     }
 

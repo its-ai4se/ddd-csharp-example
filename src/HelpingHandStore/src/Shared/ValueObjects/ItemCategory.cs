@@ -1,75 +1,31 @@
+using HelpingHandStore.Domain.Shared.Common;
+
 namespace HelpingHandStore.Domain.Shared.ValueObjects;
 
-public enum ItemCategory
+public class ItemCategory : ValueObject
 {
-    // Baby items
-    BabyClothing,
-    BabyToys,
-    BabyFurniture,
-    BabyAccessories,
+    public string Name { get; }
 
-    // Women's clothing
-    WomensWinterBoots,
-    WomensSummerShoes,
-    WomensDresses,
-    WomensCoats,
-    WomensAccessories,
+    public ItemCategory(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new DomainException("Category name cannot be empty.");
+        }
 
-    // Men's clothing
-    MensWinterBoots,
-    MensSummerShoes,
-    MensShirts,
-    MensCoats,
-    MensAccessories,
+        var trimmed = name.Trim();
+        if (!CategoryCatalog.Contains(trimmed))
+        {
+            throw new DomainException($"'{trimmed}' is not in the standard list of categories.");
+        }
 
-    // Children's clothing
-    ChildrensClothing,
-    ChildrensShoes,
-    ChildrensToys,
+        Name = CategoryCatalog.Canonical(trimmed);
+    }
 
-    // Electronics
-    Refrigerator,
-    Microwave,
-    Television,
-    Computer,
-    Phone,
-    KitchenAppliances,
+    protected override IEnumerable<object> GetEqualityComponents()
+    {
+        yield return Name;
+    }
 
-    // Furniture
-    Sofa,
-    Table,
-    Chair,
-    Bed,
-    Dresser,
-    Bookshelf,
-
-    // Kitchen items
-    Dishes,
-    Cookware,
-    KitchenUtensils,
-    SmallAppliances,
-
-    // Books and media
-    Books,
-    Movies,
-    Music,
-    Games,
-
-    // Sports and recreation
-    SportsEquipment,
-    ExerciseEquipment,
-    OutdoorGear,
-
-    // Tools and hardware
-    HandTools,
-    PowerTools,
-    Hardware,
-
-    // Miscellaneous
-    Decorations,
-    Artwork,
-    Jewelry,
-    Bags,
-    Luggage,
-    Other
+    public override string ToString() => Name;
 }
