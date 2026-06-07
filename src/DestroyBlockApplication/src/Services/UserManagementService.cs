@@ -16,6 +16,7 @@ public class UserManagementService
 
     public async Task<UserAggregate> RegisterUserAsync(Username username, Password password)
     {
+        // BR-001: username must be unique
         var existingUser = await _userRepository.GetByUsernameAsync(username.Value);
         if (existingUser != null)
             throw new DomainException($"Username '{username}' is already taken.");
@@ -26,6 +27,8 @@ public class UserManagementService
         return user;
     }
 
+    // BR-002: a user is always a player and may optionally be an admin
+    // BR-003: a user has the same password regardless of role
     // BR-004: user must choose a mode; admin mode requires admin privileges
     public async Task<UserSession> LoginAsync(Username username, Password password, LoginMode mode)
     {

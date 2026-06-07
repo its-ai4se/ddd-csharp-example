@@ -3,6 +3,7 @@ using DestroyBlockApplication.Domain.Shared.ValueObjects;
 
 namespace DestroyBlockApplication.Domain.GameSession;
 
+// BR-027: tracks per-level progress and score for a game session
 public class LevelProgress : Entity
 {
     public LevelNumber LevelNumber { get; }

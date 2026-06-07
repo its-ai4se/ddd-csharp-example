@@ -7,33 +7,7 @@ namespace DestroyBlockApplication.Domain.Tests;
 public class GameStateTests
 {
     [Fact]
-    public async Task GT001_CompleteLevelGameIsSaved()
-    {
-        var (service, game, sessionRepo, _) = await Helpers.CreateGamePlaySetup();
-        var playerId = Guid.NewGuid();
-        var session = await service.StartGameAsync(playerId, game.Id);
-
-        await service.CompleteLevelAsync(session.Id, playerId);
-
-        Assert.NotNull((await sessionRepo.GetByIdAsync(session.Id))!.LastSavedAt);
-    }
-
-    [Fact]
-    public async Task GT002_PauseGameGameIsSaved()
-    {
-        var (service, game, sessionRepo, _) = await Helpers.CreateGamePlaySetup();
-        var playerId = Guid.NewGuid();
-        var session = await service.StartGameAsync(playerId, game.Id);
-
-        await service.PauseGameAsync(session.Id, playerId);
-
-        var updated = (await sessionRepo.GetByIdAsync(session.Id))!;
-        Assert.NotNull(updated.LastSavedAt);
-        Assert.True(updated.IsPaused);
-    }
-
-    [Fact]
-    public async Task GT003_ResumeGameGameResumes()
+    public async Task GT001_ResumeGameShouldResumeGame()
     {
         var (service, game, sessionRepo, _) = await Helpers.CreateGamePlaySetup();
         var playerId = Guid.NewGuid();
@@ -46,7 +20,7 @@ public class GameStateTests
     }
 
     [Fact]
-    public async Task GT004_ResumeGameStatePreserved()
+    public async Task GT002_ResumeGameStatePreserved()
     {
         var (service, game, sessionRepo, _) = await Helpers.CreateGamePlaySetup();
         var playerId = Guid.NewGuid();

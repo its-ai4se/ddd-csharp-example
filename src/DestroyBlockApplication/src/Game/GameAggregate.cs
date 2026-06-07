@@ -5,13 +5,19 @@ namespace DestroyBlockApplication.Domain.Game;
 
 public class GameAggregate : AggregateRoot
 {
+    // BR-008: each game must have a unique name
     public GameName Name { get; private set; }
+    // BR-007: there is only one admin per game
     public Guid AdminId { get; private set; }
+    // BR-021: a player can only play a game after it has been published
     public bool IsPublished { get; private set; }
+    // BR-019: ball speed starts at minimum and increases each level
     public Speed MinimumSpeed { get; private set; }
     public double SpeedIncreaseFactor { get; private set; }
+    // BR-020: paddle starts at maximum length and decreases to minimum across levels
     public PaddleLength MaximumPaddleLength { get; private set; }
     public PaddleLength MinimumPaddleLength { get; private set; }
+    // BR-018: number of blocks shown at the beginning of each level is fixed and admin-defined
     public int BlocksPerLevel { get; private set; }
 
     private readonly List<BlockType> _blockTypes = [];
@@ -62,6 +68,7 @@ public class GameAggregate : AggregateRoot
             throw new ArgumentException("Blocks per level must be positive.", nameof(BlocksPerLevel));
     }
 
+    // BR-010: admin defines a set of blocks for the game; each block has a color and point value
     public void AddBlockType(BlockType blockType)
     {
         ArgumentNullException.ThrowIfNull(blockType);
@@ -72,6 +79,7 @@ public class GameAggregate : AggregateRoot
         _blockTypes.Add(blockType);
     }
 
+    // BR-013: levels are numbered starting at 1; BR-014: maximum 99 levels
     public void AddLevel(Level level)
     {
         ArgumentNullException.ThrowIfNull(level);
@@ -84,6 +92,8 @@ public class GameAggregate : AggregateRoot
         _levels.Add(level);
     }
 
+    // BR-012: a game must have at least one level before it can be published
+    // BR-018: each non-random level must have exactly BlocksPerLevel block placements
     public void Publish()
     {
         if (_blockTypes.Count == 0)
@@ -91,12 +101,20 @@ public class GameAggregate : AggregateRoot
         if (_levels.Count == 0)
             throw new InvalidOperationException("Cannot publish game without levels.");
 
+        foreach (var level in _levels)
+        {
+            if (!level.IsRandom && level.BlockPlacements.Count != BlocksPerLevel)
+                throw new InvalidOperationException(
+                    $"Level {level.LevelNumber} must have exactly {BlocksPerLevel} block placements, but has {level.BlockPlacements.Count}.");
+        }
+
         IsPublished = true;
     }
 
     public Level? GetLevel(LevelNumber levelNumber)
         => _levels.FirstOrDefault(l => l.LevelNumber.Equals(levelNumber));
 
+    // BR-019: speed starts at minimum and increases by factor per level
     public Speed GetSpeedForLevel(LevelNumber levelNumber)
     {
         // speed = minSpeed * (1 + factor * levelIndex)
@@ -105,6 +123,7 @@ public class GameAggregate : AggregateRoot
         return new Speed(MinimumSpeed.Value * (1 + SpeedIncreaseFactor * levelIndex));
     }
 
+    // BR-020: paddle starts at maximum length and reduces gradually to minimum across levels
     public PaddleLength GetPaddleLengthForLevel(LevelNumber levelNumber)
     {
         if (_levels.Count <= 1)

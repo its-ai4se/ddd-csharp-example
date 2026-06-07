@@ -18,7 +18,7 @@ public class HallOfFameAggregate : AggregateRoot
         GameId = gameId;
     }
 
-    // BR-034: players compete for high score; ordered by score descending
+    // BR-032: players compete for high score; ordered by score descending
     public IReadOnlyList<HighScoreEntry> Entries => _entries
         .OrderByDescending(e => e.Score.Value)
         .ThenBy(e => e.CompletedAt)

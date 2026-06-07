@@ -23,8 +23,8 @@ public class GameSessionAggregate : AggregateRoot
         GameId = gameId;
         Status = GameSessionStatus.Active;
         TotalScore = Score.Zero;
-        Lives = new Lives(3);
-        CurrentLevel = new LevelNumber(1);
+        Lives = new Lives(3); // BR-029: player starts with three lives
+        CurrentLevel = new LevelNumber(1); // BR-013: game starts at level 1
         StartedAt = DateTime.UtcNow;
         _levelProgress.Add(new LevelProgress(CurrentLevel, StartedAt));
     }
@@ -35,23 +35,25 @@ public class GameSessionAggregate : AggregateRoot
         GameId = gameId;
         Status = GameSessionStatus.Active;
         TotalScore = Score.Zero;
-        Lives = new Lives(3);
-        CurrentLevel = new LevelNumber(1);
+        Lives = new Lives(3); // BR-029: player starts with three lives
+        CurrentLevel = new LevelNumber(1); // BR-013: game starts at level 1
         StartedAt = DateTime.UtcNow;
         _levelProgress.Add(new LevelProgress(CurrentLevel, StartedAt));
     }
 
     public IReadOnlyList<LevelProgress> LevelProgress => _levelProgress.AsReadOnly();
 
+    // BR-026: player earns points equal to the value of the hit block
     public void AddScore(Score score)
     {
         if (!Status.Equals(GameSessionStatus.Active))
             throw new InvalidOperationException("Cannot add score to inactive game session.");
 
-        TotalScore = TotalScore + score;
+        TotalScore += score;
         GetCurrentLevelProgress()?.AddScore(score);
     }
 
+    // BR-028: ball out-of-bounds — player loses one life; BR-030: game ends when all lives are lost
     public void LoseLife()
     {
         if (!Status.Equals(GameSessionStatus.Active))
@@ -66,19 +68,18 @@ public class GameSessionAggregate : AggregateRoot
         }
     }
 
-    // BR-027, BR-032: called when the last block of a level is destroyed
-    // Saves the game and waits for player confirmation (BR-031)
+    // BR-027: last block destroyed — transitions status to LevelCompleted so the player can advance
     public void CompleteLevel()
     {
         if (!Status.Equals(GameSessionStatus.Active))
             throw new InvalidOperationException("Cannot complete level in inactive game session.");
 
         GetCurrentLevelProgress()?.MarkCompleted();
-        Status = GameSessionStatus.LevelCompleted;
+        Status = GameSessionStatus.LevelCompleted; // player must confirm advance via AdvanceToNextLevel
         LastSavedAt = DateTime.UtcNow;
     }
 
-    // BR-031: only callable after player confirms (i.e., status is LevelCompleted)
+    // BR-027: advances to the next level once the player confirms after level completion
     public void AdvanceToNextLevel()
     {
         if (!Status.Equals(GameSessionStatus.LevelCompleted))
@@ -89,6 +90,7 @@ public class GameSessionAggregate : AggregateRoot
         Status = GameSessionStatus.Active;
     }
 
+    // BR-031: a paused game can be resumed by the player
     public void Pause()
     {
         if (!Status.Equals(GameSessionStatus.Active) && !Status.Equals(GameSessionStatus.LevelCompleted))
@@ -98,6 +100,7 @@ public class GameSessionAggregate : AggregateRoot
         LastSavedAt = DateTime.UtcNow;
     }
 
+    // BR-031: resume restores a paused session to active
     public void Resume()
     {
         if (!Status.Equals(GameSessionStatus.Paused))
@@ -106,15 +109,19 @@ public class GameSessionAggregate : AggregateRoot
         Status = GameSessionStatus.Active;
     }
 
+    // BR-030: game ends when last level is finished; transitions to Completed
     public void Complete()
     {
-        if (!Status.Equals(GameSessionStatus.Active))
+        if (!Status.Equals(GameSessionStatus.Active) && !Status.Equals(GameSessionStatus.LevelCompleted))
             throw new InvalidOperationException("Cannot complete inactive game session.");
 
         Status = GameSessionStatus.Completed;
         CompletedAt = DateTime.UtcNow;
         LastSavedAt = DateTime.UtcNow;
     }
+
+    // BR-034: helper to check if session is still ongoing (non-terminal)
+    public bool IsOngoing => !IsCompleted && !IsFailed;
 
     public bool IsActive => Status.Equals(GameSessionStatus.Active);
     public bool IsPaused => Status.Equals(GameSessionStatus.Paused);

@@ -2,6 +2,7 @@ using DestroyBlockApplication.Domain.Shared.Common;
 
 namespace DestroyBlockApplication.Domain.Shared.ValueObjects;
 
+// BR-020: paddle length starts at maximum and reduces to minimum across levels
 public class PaddleLength : ValueObject
 {
     public double Value { get; }
@@ -17,7 +18,7 @@ public class PaddleLength : ValueObject
     }
 
     public static PaddleLength operator -(PaddleLength length, double reduction)
-        => new PaddleLength(length.Value - reduction);
+        => new(length.Value - reduction);
 
     protected override IEnumerable<object> GetEqualityComponents()
     {

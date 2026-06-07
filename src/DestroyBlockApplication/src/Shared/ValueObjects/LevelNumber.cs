@@ -8,6 +8,7 @@ public class LevelNumber : ValueObject
 
     public LevelNumber(int value)
     {
+        // BR-013: levels are numbered starting at 1; BR-014: maximum is 99
         if (value < 1 || value > 99)
         {
             throw new ArgumentException("Level number must be between 1 and 99.", nameof(value));

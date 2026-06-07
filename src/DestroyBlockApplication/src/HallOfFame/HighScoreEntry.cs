@@ -3,6 +3,8 @@ using DestroyBlockApplication.Domain.Shared.ValueObjects;
 
 namespace DestroyBlockApplication.Domain.HallOfFame;
 
+// BR-030: total score displayed in the game's hall of fame when game ends
+// BR-032: players compete for high score in the game's hall of fame
 public class HighScoreEntry : Entity
 {
     public Guid GameId { get; }

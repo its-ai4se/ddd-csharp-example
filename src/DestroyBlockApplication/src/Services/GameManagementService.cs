@@ -33,14 +33,14 @@ public class GameManagementService
         PaddleLength minimumPaddleLength,
         int blocksPerLevel)
     {
-        // Verify admin exists and has admin privileges
+        // BR-006: only an admin may create a game; BR-007: one admin per game
         var admin = await _userRepository.GetByIdAsync(adminId) ?? throw new DomainException($"User with ID {adminId} not found.");
         if (!admin.IsAdmin)
         {
             throw new DomainException($"User {admin.Username} is not an admin.");
         }
 
-        // Check if game name already exists
+        // BR-008: each game must have a unique name
         var existingGame = await _gameRepository.GetByNameAsync(name.Value);
         if (existingGame != null)
         {
@@ -52,12 +52,14 @@ public class GameManagementService
 
         await _gameRepository.AddAsync(game);
 
+        // BR-009: each game has its own hall of fame
         var hallOfFame = new HallOfFameAggregate(game.Id);
         await _hallOfFameRepository.AddAsync(hallOfFame);
 
         return game;
     }
 
+    // BR-021: a player can only play a game after it has been published by the admin
     public async Task PublishGameAsync(Guid gameId, Guid adminId)
     {
         var game = await _gameRepository.GetByIdAsync(gameId) ?? throw new DomainException($"Game with ID {gameId} not found.");

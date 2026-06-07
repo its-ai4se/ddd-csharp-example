@@ -2,6 +2,7 @@ using DestroyBlockApplication.Domain.Shared.Common;
 
 namespace DestroyBlockApplication.Domain.Shared.ValueObjects;
 
+// BR-019: ball speed starts at minimum and increases with each level
 public class Speed : ValueObject
 {
     public double Value { get; }

@@ -2,6 +2,7 @@ using DestroyBlockApplication.Domain.Shared.Common;
 
 namespace DestroyBlockApplication.Domain.Shared.ValueObjects;
 
+// BR-010: each block has a color as defined by the admin
 public class Color : ValueObject
 {
     public string Value { get; }

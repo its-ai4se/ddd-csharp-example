@@ -6,6 +6,7 @@ namespace DestroyBlockApplication.Domain.Game;
 public class Level : Entity
 {
     public LevelNumber LevelNumber { get; }
+    // BR-017: admin may designate a level as random; blocks at the top are randomly selected from block set
     public bool IsRandom { get; }
     private readonly List<BlockPlacement> _blockPlacements = new();
 
@@ -23,6 +24,7 @@ public class Level : Entity
 
     public IReadOnlyList<BlockPlacement> BlockPlacements => _blockPlacements.AsReadOnly();
 
+    // BR-015: admin specifies the starting arrangement of blocks on a grid for each level
     public void AddBlockPlacement(BlockPlacement placement)
     {
         ArgumentNullException.ThrowIfNull(placement);

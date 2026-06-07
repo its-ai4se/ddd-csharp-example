@@ -2,6 +2,7 @@ using DestroyBlockApplication.Domain.Shared.Common;
 
 namespace DestroyBlockApplication.Domain.Shared.ValueObjects;
 
+// BR-029: a player starts a game with three lives
 public class Lives : ValueObject
 {
     public int Value { get; }

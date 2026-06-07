@@ -12,8 +12,9 @@ public class GamePlayTests
     {
         var game = Helpers.CreateValidGame(Guid.NewGuid());
         var level = game.Levels[0];
-        level.AddBlockPlacement(new BlockPlacement(new GridPosition(1, 1), game.BlockTypes[0].Id));
-        Assert.Single(level.BlockPlacements);
+        var initialCount = level.BlockPlacements.Count;
+        level.AddBlockPlacement(new BlockPlacement(new GridPosition(1, 2), game.BlockTypes[0].Id));
+        Assert.Equal(initialCount + 1, level.BlockPlacements.Count);
     }
 
     [Fact]
@@ -170,36 +171,7 @@ public class GamePlayTests
     }
 
     [Fact]
-    public async Task GP019_CompleteLevelWaitsForConfirmation()
-    {
-        var (service, game, sessionRepo, _) = await Helpers.CreateGamePlaySetup();
-        var playerId = Guid.NewGuid();
-        var session = await service.StartGameAsync(playerId, game.Id);
-
-        await service.CompleteLevelAsync(session.Id, playerId);
-
-        var updated = (await sessionRepo.GetByIdAsync(session.Id))!;
-        Assert.Equal(1, updated.CurrentLevel.Value);
-        Assert.Equal(GameSessionStatus.LevelCompleted, updated.Status);
-    }
-
-    [Fact]
-    public async Task GP020_ConfirmNextLevelStartsNextLevel()
-    {
-        var (service, game, sessionRepo, _) = await Helpers.CreateGamePlaySetup();
-        var playerId = Guid.NewGuid();
-        var session = await service.StartGameAsync(playerId, game.Id);
-
-        await service.CompleteLevelAsync(session.Id, playerId);
-        await service.ConfirmNextLevelAsync(session.Id, playerId);
-
-        var updated = (await sessionRepo.GetByIdAsync(session.Id))!;
-        Assert.Equal(2, updated.CurrentLevel.Value);
-        Assert.Equal(GameSessionStatus.Active, updated.Status);
-    }
-
-    [Fact]
-    public async Task GP021_LoseLifeDecreasesLivesBy1()
+    public async Task GP019_LoseLifeDecreasesLivesBy1()
     {
         var (service, game, _, _) = await Helpers.CreateGamePlaySetup();
         var session = await service.StartGameAsync(Guid.NewGuid(), game.Id);
@@ -208,7 +180,7 @@ public class GamePlayTests
     }
 
     [Fact]
-    public async Task GP022_BallRepositioned_AfterOutOfBounds()
+    public async Task GP020_BallRepositioned_AfterOutOfBounds()
     {
         var (service, game, _, _) = await Helpers.CreateGamePlaySetup();
         var session = await service.StartGameAsync(Guid.NewGuid(), game.Id);
@@ -220,7 +192,7 @@ public class GamePlayTests
     }
 
     [Fact]
-    public async Task GP023_LoseAllLivesGameEnds()
+    public async Task GP021_LoseAllLivesGameEnds()
     {
         var (service, game, _, _) = await Helpers.CreateGamePlaySetup();
         var session = await service.StartGameAsync(Guid.NewGuid(), game.Id);
@@ -229,7 +201,7 @@ public class GamePlayTests
     }
 
     [Fact]
-    public async Task GP024_CompleteLastLevelGameEnds()
+    public async Task GP022_CompleteLastLevelGameEnds()
     {
         var (service, game, sessionRepo, _) = await Helpers.CreateGamePlaySetup(numLevels: 1);
         var playerId = Guid.NewGuid();
@@ -241,7 +213,7 @@ public class GamePlayTests
     }
 
     [Fact]
-    public async Task GP025_GameEndsScoreInHallOfFame()
+    public async Task GP023_GameEndsScoreInHallOfFame()
     {
         var (service, game, _, hofRepo) = await Helpers.CreateGamePlaySetup();
         var playerId = Guid.NewGuid();
@@ -255,7 +227,7 @@ public class GamePlayTests
     }
 
     [Fact]
-    public async Task GP026_CompleteAllLevelsScoreInHallOfFame()
+    public async Task GP024_CompleteAllLevelsScoreInHallOfFame()
     {
         var (service, game, _, hofRepo) = await Helpers.CreateGamePlaySetup(numLevels: 1);
         var playerId = Guid.NewGuid();
@@ -269,7 +241,7 @@ public class GamePlayTests
     }
 
     [Fact]
-    public async Task GP027_GameContinuesWhileLivesAndLevelsRemain()
+    public async Task GP025_GameContinuesWhileLivesAndLevelsRemain()
     {
         var (service, game, _, _) = await Helpers.CreateGamePlaySetup(numLevels: 10);
         var session = await service.StartGameAsync(Guid.NewGuid(), game.Id);

@@ -28,10 +28,16 @@ static class Helpers
             new Speed(2), 0.1,
             new PaddleLength(200), new PaddleLength(50), 10);
 
-        game.AddBlockType(new BlockType(new Color("red"), new Score(100)));
+        var blockType = new BlockType(new Color("red"), new Score(100));
+        game.AddBlockType(blockType);
 
         for (int i = 1; i <= numLevels; i++)
-            game.AddLevel(new Level(new LevelNumber(i)));
+        {
+            var level = new Level(new LevelNumber(i));
+            for (int b = 1; b <= game.BlocksPerLevel; b++)
+                level.AddBlockPlacement(new BlockPlacement(new GridPosition(b, 1), blockType.Id));
+            game.AddLevel(level);
+        }
 
         return game;
     }

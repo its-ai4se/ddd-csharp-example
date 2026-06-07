@@ -5,7 +5,7 @@ namespace DestroyBlockApplication.Domain.Shared.ValueObjects;
 public sealed class GameSessionStatus : ValueObject
 {
     public static readonly GameSessionStatus Active = new("Active", skipValidation: true);
-    public static readonly GameSessionStatus LevelCompleted = new("LevelCompleted", skipValidation: true); // BR-031
+    public static readonly GameSessionStatus LevelCompleted = new("LevelCompleted", skipValidation: true); // BR-027: intermediate state after last block destroyed, before advancing
     public static readonly GameSessionStatus Paused = new("Paused", skipValidation: true);
     public static readonly GameSessionStatus Completed = new("Completed", skipValidation: true);
     public static readonly GameSessionStatus Failed = new("Failed", skipValidation: true);
