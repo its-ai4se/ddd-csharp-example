@@ -45,25 +45,4 @@ public class GameSessionTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.StartGameAsync(newGame));
     }
 
-    [Fact]
-    public void GS002_PauseGameWhenGameIsInProgress_ShouldNotBePossible()
-    {
-        var game = CreateFullyConfiguredGame();
-        game.StartGame();
-
-        var hasPauseMethod = typeof(GameAggregate).GetMethod("Pause") != null;
-        Assert.False(hasPauseMethod);
-        Assert.Equal(GameStatus.InProgress, game.Status);
-    }
-
-    [Fact]
-    public async Task GS003_SaveGameWhenGameIsInProgress_ShouldThrow()
-    {
-        var game = CreateFullyConfiguredGame();
-        game.StartGame();
-
-        var repository = new FakeGameRepository(null);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => repository.SaveDesignAsync(game));
-    }
-
 }

@@ -7,6 +7,7 @@ namespace TileOApplication.Domain.Services;
 
 public class GameDesignService
 {
+    // BR-010: Exactly 32 action cards; BR-011: From five predefined types
     public void CreateDefaultActionCardDeck(GameAggregate game)
     {
         if (game.Status != GameStatus.Designing)
@@ -36,6 +37,7 @@ public class GameDesignService
             game.AddActionCard(card);
     }
 
+    // BR-002: 2-4 players; BR-003: Unique colors
     public void SetupDefaultPlayers(GameAggregate game)
     {
         if (game.Status != GameStatus.Designing)
@@ -46,6 +48,9 @@ public class GameDesignService
             game.AddPlayer(new PlayerAggregate(colors[i], i + 1));
     }
 
+    // BR-004/BR-005: Board with connected tiles
+    // BR-006: One hidden tile; BR-007: Starting positions
+    // BR-008/BR-009: Action tiles with inactive turn durations
     public void CreateSampleBoard(GameAggregate game)
     {
         if (game.Status != GameStatus.Designing)
@@ -57,7 +62,6 @@ public class GameDesignService
 
         game.Board.SetHiddenTile(new Position(2, 2));
 
-        // Designer specifies action tile locations and their inactivity durations
         game.Board.SetActionTile(new Position(1, 1), inactiveTurns: 2);
         game.Board.SetActionTile(new Position(3, 2), inactiveTurns: 3);
 

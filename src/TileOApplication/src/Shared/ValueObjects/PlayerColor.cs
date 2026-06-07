@@ -2,6 +2,7 @@ using TileOApplication.Domain.Shared.Common;
 
 namespace TileOApplication.Domain.Shared.ValueObjects;
 
+// BR-003: Each playing piece must have a unique color to distinguish players
 public class PlayerColor : ValueObject
 {
     public string Name { get; }

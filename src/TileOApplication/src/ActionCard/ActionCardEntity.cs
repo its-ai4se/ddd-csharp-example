@@ -3,6 +3,7 @@ using TileOApplication.Domain.Shared.ValueObjects;
 
 namespace TileOApplication.Domain.ActionCard;
 
+// BR-011: Action cards from five predefined types
 public class ActionCardEntity : Entity
 {
     public ActionCardDescription Description { get; private set; }

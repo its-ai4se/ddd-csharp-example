@@ -41,6 +41,7 @@ public class GameAggregate : AggregateRoot
     public int CurrentDiceRoll => _currentDiceRoll;
     public bool DiceRolledThisTurn => _diceRolledThisTurn;
 
+    // BR-002: Maximum of 4 players; BR-003: Each player must have a unique color
     public void AddPlayer(PlayerAggregate player)
     {
         if (Status != GameStatus.Designing)
@@ -49,9 +50,12 @@ public class GameAggregate : AggregateRoot
             throw new InvalidOperationException("Maximum of 4 players allowed.");
         if (_players.Any(p => p.Color.Equals(player.Color)))
             throw new ArgumentException("A player with this color already exists.");
+        if (_players.Any(p => p.TurnOrder == player.TurnOrder))
+            throw new ArgumentException("A player with this turn order already exists.");
         _players.Add(player);
     }
 
+    // BR-010: Action card deck must consist of exactly 32 cards
     public void AddActionCard(ActionCardDescription description)
     {
         if (Status != GameStatus.Designing)
@@ -61,6 +65,9 @@ public class GameAggregate : AggregateRoot
         _actionCards.Add(new ActionCardEntity(description));
     }
 
+    // BR-002: Minimum 2 players; BR-010: Exactly 32 action cards
+    // BR-006: Exactly one hidden tile; BR-007: Starting positions for all players
+    // BR-008: Action tiles must be placed; BR-013: Player 1 starts first
     public void StartGame()
     {
         if (Status != GameStatus.Designing)
@@ -80,6 +87,7 @@ public class GameAggregate : AggregateRoot
         CurrentPlayerId = _players.OrderBy(p => p.TurnOrder).First().Id;
         CurrentTurn = 1;
 
+        // BR-007: Place players at their starting positions; BR-016: Mark starting tiles as visited
         foreach (var player in _players)
         {
             var startingPosition = Board.StartingPositions.FirstOrDefault(sp => sp.Value == player.Id).Key;
@@ -91,6 +99,7 @@ public class GameAggregate : AggregateRoot
         }
     }
 
+    // BR-014: Must roll dice before moving; BR-015: Move along connected tiles
     public void MovePlayer(Guid playerId, Position newPosition)
     {
         if (Status != GameStatus.InProgress)
@@ -113,6 +122,7 @@ public class GameAggregate : AggregateRoot
         MovePlayerInternal(playerId, newPosition);
     }
 
+    // BR-016: Mark tile as visited; BR-017: Win on hidden tile; BR-018: Draw card on action tile
     private void MovePlayerInternal(Guid playerId, Position newPosition)
     {
         var player = _players.FirstOrDefault(p => p.Id == playerId)
@@ -123,6 +133,7 @@ public class GameAggregate : AggregateRoot
         player.MoveTo(newPosition);
         tile.MarkAsVisited();
 
+        // BR-017: Game ends immediately when player lands on hidden tile
         if (tile.IsHiddenTile)
         {
             WinnerId = playerId;
@@ -130,6 +141,8 @@ public class GameAggregate : AggregateRoot
             return;
         }
 
+        // BR-018: Draw and follow first action card from top of deck
+        // BR-019: Action tile converts to regular for designer-specified turns
         if (tile.IsActionTile)
         {
             var actionCard = _actionCards.FirstOrDefault(ac => !ac.IsUsed)
@@ -140,9 +153,11 @@ public class GameAggregate : AggregateRoot
             return;
         }
 
+        // BR-013: Advance to next player in sequence
         AdvanceTurn();
     }
 
+    // BR-014: Roll dice to determine movement
     public void RecordDiceRoll(int roll)
     {
         if (Status != GameStatus.InProgress)
@@ -160,6 +175,8 @@ public class GameAggregate : AggregateRoot
         AdvanceTurn();
     }
 
+    // BR-021: Extra turn - reset dice, same player continues
+    // BR-025: Skip turn - mark player to be skipped on next advance
     private void ApplyActionCard(Guid playerId, ActionCardEntity actionCard)
     {
         switch (actionCard.Description.Type)
@@ -177,6 +194,8 @@ public class GameAggregate : AggregateRoot
         }
     }
 
+    // BR-013: Sequential turn order; BR-019: Tick action tile cooldowns
+    // BR-025: Skip forfeited turn
     private void AdvanceTurn()
     {
         Board.TickActionTiles();
@@ -188,6 +207,7 @@ public class GameAggregate : AggregateRoot
         if (nextIndex <= currentIndex)
             CurrentTurn++;
 
+        // BR-025: Skip the forfeited turn entirely
         if (orderedPlayers[nextIndex].Id == _skippedPlayerId)
         {
             _skippedPlayerId = null;

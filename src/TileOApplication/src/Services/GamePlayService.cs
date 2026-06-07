@@ -7,6 +7,7 @@ namespace TileOApplication.Domain.Services;
 
 public class GamePlayService
 {
+    // BR-014: Roll dice to determine movement
     public int RollDice(GameAggregate game)
     {
         var roll = new Random().Next(1, 7);
@@ -14,6 +15,7 @@ public class GamePlayService
         return roll;
     }
 
+    // BR-015: Only move along connected tiles
     public List<Position> GetValidMoves(GameAggregate game, Guid playerId)
     {
         if (game.Status != GameStatus.InProgress)
@@ -30,6 +32,7 @@ public class GamePlayService
         return reachable;
     }
 
+    // BR-015: BFS traversal along connected tiles
     private List<Position> GetReachablePositions(BoardAggregate board, Position start, int steps)
     {
         if (steps <= 0)
@@ -42,6 +45,7 @@ public class GamePlayService
         return result.Distinct().ToList();
     }
 
+    // BR-023: Connect two adjacent tiles using a spare connection piece
     public void ExecuteConnectTilesCard(GameAggregate game, Guid playerId, Guid actionCardId, Position from, Position to)
     {
         var actionCard = ValidateActionCardTurn(game, playerId, actionCardId, ActionCardType.ConnectTiles);
@@ -50,6 +54,7 @@ public class GamePlayService
         game.AdvanceTurnAfterActionCard();
     }
 
+    // BR-024: Remove connection piece and return to spare pile
     public void ExecuteRemoveConnectionCard(GameAggregate game, Guid playerId, Guid actionCardId, Position from, Position to)
     {
         var actionCard = ValidateActionCardTurn(game, playerId, actionCardId, ActionCardType.RemoveConnection);
@@ -58,6 +63,7 @@ public class GamePlayService
         game.AdvanceTurnAfterActionCard();
     }
 
+    // BR-022: Move to any tile other than current tile
     public void ExecuteTeleportCard(GameAggregate game, Guid playerId, Guid actionCardId, Position target)
     {
         var actionCard = ValidateActionCardTurn(game, playerId, actionCardId, ActionCardType.Teleport);

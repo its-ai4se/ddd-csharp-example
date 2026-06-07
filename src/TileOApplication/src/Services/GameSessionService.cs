@@ -12,6 +12,7 @@ public class GameSessionService
         _gameRepository = gameRepository;
     }
 
+    // BR-001: Only one game can be active at a time
     public async Task StartGameAsync(GameAggregate game)
     {
         var activeGame = await _gameRepository.GetActiveGameAsync();
