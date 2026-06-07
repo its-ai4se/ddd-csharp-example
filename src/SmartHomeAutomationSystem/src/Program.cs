@@ -3,7 +3,6 @@ using SmartHomeAutomationSystem.Domain.Room;
 using SmartHomeAutomationSystem.Domain.Device;
 using SmartHomeAutomationSystem.Domain.Automation;
 using SmartHomeAutomationSystem.Domain.Automation.Precondition;
-using SmartHomeAutomationSystem.Domain.ActivityLog;
 using SmartHomeAutomationSystem.Domain.Services;
 using SmartHomeAutomationSystem.Domain.Shared.Common;
 using SmartHomeAutomationSystem.Domain.Shared.ValueObjects;
@@ -75,13 +74,6 @@ class Program
 
         try { motionSensor.IssueCommand("lockDoor", DateTime.UtcNow); }
         catch (DomainException ex) { Console.WriteLine($"[BR-005] Guard (sensor): {ex.Message}"); }
-
-        // ── BR-006/BR-007: Activity log records readings and commands ─────────
-        var activityLog = new ActivityLogAggregate(home.Id);
-        activityLog.RecordSensorReading(motionSensor.Id, reading);
-        activityLog.RecordControlCommand(doorLock.Id, lockCmd);
-        Console.WriteLine($"[BR-006/BR-007] Log entries: {activityLog.Entries.Count} " +
-            $"({string.Join(", ", activityLog.Entries.Select(e => e.EntryType))})");
 
         // ── BR-009/BR-010/BR-011/BR-012: Precondition + ActionSequence ───────
         var rule = new AutomationRuleAggregate(new AutomationRuleName("Lock door when motion detected"), home.Id);
